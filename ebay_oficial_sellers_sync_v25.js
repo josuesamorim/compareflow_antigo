@@ -1,6 +1,9 @@
-const { PrismaClient } = require("@prisma/client");
-const axios = require("axios");
-const crypto = require("crypto"); // Adicionado para gerar o hash curto
+import { PrismaClient } from "@prisma/client";
+import axios from "axios";
+import crypto from "crypto";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const prisma = new PrismaClient();
 
