@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+
+/* Força o tema claro independente do sistema */
+:root {
+  --background: #ffffff;
+  --foreground: #111827;
+  color-scheme: light; /* Diz ao navegador para ignorar o dark mode do sistema */
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* Customizações globais para o Recharts (Comparador de Preços) */
+.recharts-wrapper, .recharts-surface, .recharts-container, .recharts-wrapper svg {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+.recharts-cartesian-axis-tick-value {
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 9px;
+  fill: #94a3b8;
+  text-transform: uppercase;
+}

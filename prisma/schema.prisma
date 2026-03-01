@@ -1,0 +1,91 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("PRICELAB_SUPABASE_DB")
+}
+
+model Product {
+  id                      Int                      @id @default(autoincrement())
+  name                    String?
+  brand                   String?                  @db.VarChar(100)
+  category_path           String?                  @db.VarChar(255)
+  internalCategory        String?                  @map("internal_category") @db.VarChar(100)
+  slug                    String?                  @unique @db.VarChar(255)
+  customerReviewAverage   Decimal?                 @map("customer_review_average") @db.Decimal(3, 2)
+  customerReviewCount     Int?                     @map("customer_review_count")
+  lastUpdated             DateTime?                @default(now()) @map("last_updated") @db.Timestamptz(6)
+  group_id                String?                  @db.VarChar(255)
+  upc                     String?                  @db.VarChar(50)
+  normalizedModelKey      String?                  @map("normalized_model_key")
+  search_vector           Unsupported("tsvector")?
+  expertScore             Decimal?                 @map("expert_score") @db.Decimal(3, 1)
+  expertReview            Json?                    @map("expert_review")
+  expertLastUpdated       DateTime?                @map("expert_last_updated") @db.Timestamptz(6)
+  expertSpecsHash         String?                  @map("expert_specs_hash")
+  expertStatus            ExpertStatus?            @default(PENDING) @map("expert_status")
+  expertNeedsRevalidation Boolean                  @default(false) @map("expert_needs_revalidation")
+  expertRevalidateAfter   DateTime?                @map("expert_revalidate_after") @db.Timestamptz(6)
+  expertLastChecked       DateTime?                @default(dbgenerated("'1970-01-01 00:00:00+00'::timestamp with time zone")) @map("expert_last_checked") @db.Timestamptz(6)
+  upcLastChecked          DateTime?                @map("upc_last_checked") @db.Timestamptz(6)
+  upcNotFound             Boolean                  @default(false) @map("upc_not_found")
+  aiNameCleaned         Boolean        @default(false) @map("ai_name_cleaned")
+  listings                Listing[]
+
+  @@index([upc])
+  @@index([name(ops: raw("gin_trgm_ops"))], map: "trgm_idx_products_name", type: Gin)
+  @@index([expertScore])
+  @@index([expertSpecsHash], map: "idx_products_expert_specs_hash")
+  @@index([search_vector], map: "idx_products_search_vector", type: Gin)
+  @@index([lastUpdated(sort: Desc)])
+  @@index([slug])
+  @@map("products")
+}
+
+model Listing {
+  id                 Int            @id @default(autoincrement())
+  sku                String         @unique @db.VarChar(100)
+  productId          Int            @map("product_id")
+  store              String         @db.VarChar(50)
+  url                String?
+  affiliateUrl       String?        @map("affiliate_url")
+  image              String?
+  condition          String?        @default("new") @db.VarChar(50)
+  regularPrice       Decimal?       @map("regular_price") @db.Decimal(10, 2)
+  salePrice          Decimal?       @map("sale_price") @db.Decimal(10, 2)
+  onSale             Boolean?       @default(false) @map("on_sale")
+  onlineAvailability Boolean?       @default(true) @map("online_availability")
+  isExpired          Boolean?       @default(false) @map("is_expired")
+  lastUpdated        DateTime?      @default(now()) @map("last_updated") @db.Timestamptz(6)
+  rawDetails         Json?          @map("raw_details")
+  product            Product        @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  priceHistory       PriceHistory[]
+
+  @@index([productId], map: "idx_listings_product_id")
+  @@index([store], map: "idx_listings_store")
+  @@map("listings")
+}
+
+model PriceHistory {
+  id         Int       @id @default(autoincrement())
+  price      Decimal   @db.Decimal(10, 2)
+  condition  String    @default("new")
+  capturedAt DateTime? @default(now()) @map("captured_at") @db.Timestamptz(6)
+  listingId  Int       @map("listing_id")
+  listing    Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("price_history")
+}
+
+enum ExpertStatus {
+  PENDING
+  VALID
+  PARTIAL
+  PRE_RELEASE
+  INSUFFICIENT
+  ERROR
+  BLOCKED
+}

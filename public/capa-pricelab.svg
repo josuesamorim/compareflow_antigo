@@ -1,0 +1,31 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#0f172a"/>
+  
+  <defs>
+    <radialGradient id="glow" cx="85%" cy="15%" r="60%">
+      <stop offset="0%" stop-color="#FFDB00" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <g transform="translate(150, 140) scale(4.5)">
+    <rect width="24" height="24" rx="4" fill="#FFDB00"/>
+    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="black"/>
+  </g>
+
+  <text x="285" y="222" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="900" font-style="italic" fill="white">
+    PRICE<tspan fill="#FFDB00">LAB</tspan>
+  </text>
+
+  <text x="150" y="380" font-family="system-ui, -apple-system, sans-serif" font-size="96" font-weight="900" font-style="italic" fill="white" letter-spacing="-2">
+    STOP PAYING
+  </text>
+  <text x="150" y="480" font-family="system-ui, -apple-system, sans-serif" font-size="96" font-weight="900" font-style="italic" fill="#FFDB00" letter-spacing="-2">
+    RETAIL PRICES.
+  </text>
+
+  <text x="154" y="550" font-family="system-ui, -apple-system, sans-serif" font-size="32" font-weight="600" fill="#94a3b8">
+    Real-time price tracking across top US retailers.
+  </text>
+</svg>
