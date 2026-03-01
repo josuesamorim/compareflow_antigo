@@ -28,12 +28,12 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
         env:
-          PRICELAB_SUPABASE_DB: ${{ secrets.PRICELAB_SUPABASE_DB }}
+          PRICELAB_SUPABASE_DB_DIRECT: ${{ secrets.PRICELAB_SUPABASE_DB_DIRECT }}
 
       - name: Run Ebay Sync
         run: node ebay_oficial_sellers_sync_v25.js
         env:
-          PRICELAB_SUPABASE_DB: ${{ secrets.PRICELAB_SUPABASE_DB }}
+          PRICELAB_SUPABASE_DB_DIRECT: ${{ secrets.PRICELAB_SUPABASE_DB_DIRECT }}
           EBAY_APP_ID: ${{ secrets.EBAY_APP_ID }}
           EBAY_CERT_ID: ${{ secrets.EBAY_CERT_ID }}
 
