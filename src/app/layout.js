@@ -34,6 +34,10 @@ export const metadata = {
       "max-video-preview": -1,
     },
   },
+  // ✅ Favicon adicionado via Metadata API
+  icons: {
+    icon: '/favicon.svg',
+  },
   openGraph: {
     title: "PRICELAB | Best Deals in USA",
     description:
@@ -76,7 +80,12 @@ export default function RootLayout({ children }) {
       {/* GTM precisa ficar o mais alto possível */}
       {gtmId && <GoogleTagManager gtmId={gtmId} />}
 
-      {/* ✅ Removido <head> manual (agora está em app/head.js) */}
+      {/* ✅ <head> manual voltando apenas para os preconnects de performance */}
+      <head>
+        <link rel="preconnect" href="https://pisces.bbystatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://i.ebayimg.com" crossOrigin="anonymous" />
+      </head>
+
       <body className="antialiased bg-slate-50 flex flex-col min-h-screen m-0 p-0 overflow-x-hidden selection:bg-[#ffdb00] selection:text-black">
         {/* Header */}
         <Header />
