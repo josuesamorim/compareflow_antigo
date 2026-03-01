@@ -1,0 +1,52 @@
+name: PRICELAB Best Buy Daily Sync
+
+on:
+  schedule:
+    # Roda todos os dias às 10:00 UTC (07:00 da manhã no Brasil)
+    - cron: '0 10 * * *'
+  workflow_dispatch: # Permite rodar manualmente para testes
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # VITAL: Conecta o Job ao ambiente onde seus segredos estão guardados
+    environment: "pricelab"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '23.9.0' 
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        env:
+          DATABASE_URL_SUPABASE: ${{ secrets.DIRECT_URL_SUPABASE }}
+
+      - name: Run BestBuy Sync
+        run: node bestbuy_sync_v25.js
+        env:
+          # Mapeia o segredo do ambiente para a variável esperada pelo schema.prisma
+          DATABASE_URL_SUPABASE: ${{ secrets.DIRECT_URL_SUPABASE }}
+          # Mapeia para a variável esperada pelo script sync-bestbuy.js
+          DIRECT_URL_SUPABASE: ${{ secrets.DIRECT_URL_SUPABASE }}
+          # Credenciais da API BestBuy
+          BBY_API_KEY: ${{ secrets.BBY_API_KEY }}
+          BBY_BASE_URL: ${{ secrets.BBY_BASE_URL }}
+
+      - name: Revalidate Vercel Cache
+        run: node revalidade-next.js
+        env:
+          # IMPORTANTE: Como estes segredos estão em pastas DIFERENTES no seu print, 
+          # certifique-se de copiá-los também para a pasta "Update prices" no GitHub
+          # ou movê-los para Repository Secrets (Globais).
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
+          BASE_URL: ${{ secrets.BASE_URL }}
+      

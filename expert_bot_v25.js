@@ -12,7 +12,6 @@ const prisma = new PrismaClient();
 
 /**
  * CONFIGURAÇÕES DE FLUXO E LIMITES
- * Movidas para o topo para evitar erros de inicialização (Hoisting)
  */
 const REQUISICOES_POR_MINUTO = 0.75;
 const INTERVALO_MS = 80000;
@@ -20,11 +19,11 @@ const LIMITE_DIARIO = 210;
 const MAX_TENTATIVAS_POR_PRODUTO = 2;
 const TEMPO_ESPERA_EXAUSTAO_MS = 10 * 60 * 1000;
 
-// Agentes globais com KeepAlive para performance em alto volume
+// Agentes globais com KeepAlive
 const httpAgent = new http.Agent({ keepAlive: true });
 const httpsAgent = new https.Agent({ keepAlive: true });
 
-// Categorias prioritárias para processamento (ajustável conforme necessidade)
+// Categorias prioritárias
 const PRIORITY_CATEGORIES = [
   "smartphones",
   "gaming-consoles",
@@ -72,12 +71,11 @@ if (API_KEYS.length === 0) {
 
 let currentKeyIndex = 0;
 let chavesFalhasSeguidas = 0;
+let voltasCompletasSemSucesso = 0;
 
 function getCurrentKey() {
   return API_KEYS[currentKeyIndex];
 }
-
-let voltasCompletasSemSucesso = 0;
 
 async function getNextKey() {
   if (API_KEYS.length === 0) return null;
@@ -85,25 +83,28 @@ async function getNextKey() {
   chavesFalhasSeguidas++;
   currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
 
-  // Se voltamos ao início, completamos uma volta
   if (currentKeyIndex === 0) {
     voltasCompletasSemSucesso++;
-    console.warn(`\n🔄 Volta completa no carrossel de chaves (${voltasCompletasSemSucesso}/2).`);
+    console.warn(
+      `\n🔄 Volta completa no carrossel de chaves (${voltasCompletasSemSucesso}/2).`
+    );
   }
 
-  // TRAVA DE SEGURANÇA: Se já rodou o carrossel 2 vezes e nada, mata o processo.
   if (voltasCompletasSemSucesso >= 2) {
-    console.error("🚨 [LIMITE DIÁRIO ATINGIDO] Todas as 10 chaves esgotadas após 2 voltas.");
+    console.error(
+      "🚨 [LIMITE DIÁRIO ATINGIDO] Todas as 10 chaves esgotadas após 2 voltas."
+    );
     console.log("🏁 Encerrando para poupar minutos do GitHub Actions.");
     await prisma.$disconnect();
-    process.exit(0); 
+    process.exit(0);
   }
 
-  // Se falhou em todas as chaves da lista nesta rodada, espera o reset de RPM
   if (chavesFalhasSeguidas >= API_KEYS.length) {
-    console.error(`⚠️ Todas as chaves em RPM. Pausando ${TEMPO_ESPERA_EXAUSTAO_MS / 60000} min...`);
+    console.error(
+      `⚠️ Todas as chaves em RPM. Pausando ${TEMPO_ESPERA_EXAUSTAO_MS / 60000} min...`
+    );
     await new Promise((r) => setTimeout(r, TEMPO_ESPERA_EXAUSTAO_MS));
-    chavesFalhasSeguidas = 0; 
+    chavesFalhasSeguidas = 0;
   }
 
   console.log(`🔑 Rotação: Alternando para a Chave API #${currentKeyIndex + 1}...`);
@@ -112,12 +113,10 @@ async function getNextKey() {
 
 /**
  * ORDENA OBJETO RECURSIVAMENTE
- * Implementação otimizada para evitar overhead em objetos muito profundos
  */
 function sortObjectKeys(obj) {
-  if (obj === null || typeof obj !== "object" || Array.isArray(obj)) {
-    return obj;
-  }
+  if (obj === null || typeof obj !== "object" || Array.isArray(obj)) return obj;
+
   const sortedObj = {};
   Object.keys(obj)
     .sort()
@@ -128,7 +127,7 @@ function sortObjectKeys(obj) {
 }
 
 /**
- * GERA HASH MD5 ESTÁVEL
+ * GERA HASH MD5 ESTÁVEL (agora baseado no rawDetails do LISTING)
  */
 function generateSpecsHash(rawDetails) {
   if (!rawDetails) return "null_hash";
@@ -144,26 +143,20 @@ function sanitizeAiJson(rawText) {
   if (!rawText) return null;
 
   try {
-    // 1. Localiza a primeira e a última chave no texto.
-    // Isso ignora automaticamente ```json, textos explicativos, ou espaços extras.
     const firstBrace = rawText.indexOf("{");
     const lastBrace = rawText.lastIndexOf("}");
 
     if (firstBrace === -1 || lastBrace === -1) {
-      console.error(
-        "❌ Falha Crítica: A IA não retornou um objeto JSON válido.",
-      );
+      console.error("❌ Falha Crítica: A IA não retornou um objeto JSON válido.");
       return null;
     }
 
-    // 2. Extrai apenas o que está entre as chaves (inclusive)
     let cleanJson = rawText.substring(firstBrace, lastBrace + 1);
 
-    // 3. Limpeza de "lixo" comum que a IA gera com pesquisa ativa
     cleanJson = cleanJson
-      .replace(/\\n/g, " ") // Remove quebras de linha literais
-      .replace(/(\w|\")\[\d+\]/g, "$1") // Remove citações como [1], [2]
-      .replace(/,\s*([\]}])/g, "$1") // Remove vírgulas extras (Trailing Commas)
+      .replace(/\\n/g, " ")
+      .replace(/(\w|\")\[\d+\]/g, "$1")
+      .replace(/,\s*([\]}])/g, "$1")
       .trim();
 
     return cleanJson;
@@ -174,7 +167,7 @@ function sanitizeAiJson(rawText) {
 }
 
 /**
- * EXPERTBOT RUNNER
+ * EXPERTBOT RUNNER (Schema V25: Product + Listings)
  */
 async function runExpertBot() {
   let processadosHoje = 0;
@@ -182,11 +175,9 @@ async function runExpertBot() {
   let ultimoIdProcessado = null;
   let apiKeyAtiva = getCurrentKey();
 
+  console.log("🚀 Iniciando ExpertBot Enterprise (Lifecycle + Loop Protection)...");
   console.log(
-    "🚀 Iniciando ExpertBot Enterprise (Lifecycle + Loop Protection)...",
-  );
-  console.log(
-    `⏱️ Ritmo Alvo: ${REQUISICOES_POR_MINUTO} produto/min | Janela: ${INTERVALO_MS / 1000}s`,
+    `⏱️ Ritmo Alvo: ${REQUISICOES_POR_MINUTO} produto/min | Janela: ${INTERVALO_MS / 1000}s`
   );
 
   try {
@@ -197,53 +188,21 @@ async function runExpertBot() {
       // Proteção contra processamento redundante imediato
       const limiteChecagemRecente = new Date(agora.getTime() - 60 * 60 * 1000);
 
-      const product = await prisma.product.findFirst({
-        where: {
-          isExpired: false,
-          onlineAvailability: true,
-          internalCategory: { in: PRIORITY_CATEGORIES },
-          OR: [
-            { expertLastChecked: null },
-            { expertLastChecked: { lt: limiteChecagemRecente } },
-          ],
-          AND: [
-            {
-              OR: [
-                { expertReview: { equals: Prisma.DbNull } },
-                { expertStatus: { in: ["ERROR", "BLOCKED"] } },
-                {
-                  expertNeedsRevalidation: true,
-                  expertRevalidateAfter: { lte: agora },
-                },
-              ],
-            },
-          ],
-        },
-        select: {
-          id: true,
-          name: true,
-          brand: true,
-          rawDetails: true,
-          expertReview: true,
-          expertSpecsHash: true,
-          expertStatus: true,
-          expertNeedsRevalidation: true,
-          expertRevalidateAfter: true,
-        },
-        orderBy: { lastUpdated: "asc" },
-      });
-
-      // 2. TENTATIVA: Se não achou na prioridade, busca no resto do banco
-      if (!product) {
-        product = await prisma.product.findFirst({
+      /**
+       * Helper: busca 1 produto elegível + 1 listing ativo (melhor candidato)
+       */
+      const findCandidate = async (usePriority) => {
+        return prisma.product.findFirst({
           where: {
-            isExpired: false,
-            onlineAvailability: true,
-            internalCategory: { notIn: PRIORITY_CATEGORIES }, // Exclui o que já tentamos acima
+            internalCategory: usePriority
+              ? { in: PRIORITY_CATEGORIES }
+              : { notIn: PRIORITY_CATEGORIES },
+
             OR: [
               { expertLastChecked: null },
               { expertLastChecked: { lt: limiteChecagemRecente } },
             ],
+
             AND: [
               {
                 OR: [
@@ -256,28 +215,83 @@ async function runExpertBot() {
                 ],
               },
             ],
+
+            // ✅ No schema novo, “ativo” é definido por LISTING
+            listings: {
+              some: {
+                isExpired: false,
+                onlineAvailability: true,
+              },
+            },
           },
           select: {
             id: true,
             name: true,
             brand: true,
-            rawDetails: true,
             internalCategory: true,
+            expertReview: true,
+            expertSpecsHash: true,
+            expertStatus: true,
+            expertNeedsRevalidation: true,
+            expertRevalidateAfter: true,
+            expertLastChecked: true,
+            // pegamos 1 listing “ativo”
+            listings: {
+              where: { isExpired: false, onlineAvailability: true },
+              select: {
+                sku: true,
+                store: true,
+                condition: true,
+                rawDetails: true,
+                salePrice: true,
+                regularPrice: true,
+                url: true,
+                affiliateUrl: true,
+              },
+              orderBy: [
+                { salePrice: "asc" },
+                { lastUpdated: "desc" },
+              ],
+              take: 1,
+            },
           },
           orderBy: { lastUpdated: "asc" },
         });
+      };
+
+      let product = await findCandidate(true);
+
+      if (!product) {
+        product = await findCandidate(false);
       }
 
-      // 3. FINALIZAÇÃO: Se após as duas buscas ainda for null, a fila acabou de verdade
       if (!product) {
-        console.log(
-          "\n🏁 Fila de maturidade total (Prioritária + Global) concluída.",
-        );
+        console.log("\n🏁 Fila de maturidade total (Prioritária + Global) concluída.");
         break;
       }
 
-      const currentHash = generateSpecsHash(product.rawDetails);
+      const listing = product.listings?.[0] || null;
+
+      // Sem listing ativo, marca e segue (não deveria acontecer por causa do where.listings.some)
+      if (!listing) {
+        await prisma.product.update({
+          where: { id: product.id },
+          data: {
+            expertStatus: "ERROR",
+            expertLastChecked: agora,
+            expertReview: {
+              error: true,
+              message: "Product has no active listing (unexpected).",
+            },
+          },
+        });
+        processadosHoje++;
+        continue;
+      }
+
+      const currentHash = generateSpecsHash(listing.rawDetails);
       const reviewData = product.expertReview;
+
       const possuiRevalidacaoPendente =
         product.expertNeedsRevalidation === true &&
         product.expertRevalidateAfter &&
@@ -302,7 +316,7 @@ async function runExpertBot() {
         tentativasAtuais++;
         if (tentativasAtuais >= MAX_TENTATIVAS_POR_PRODUTO) {
           console.error(
-            `\n⚠️ ID ${product.id} falhou após ${MAX_TENTATIVAS_POR_PRODUTO} tentativas. Movendo para próximo.`,
+            `\n⚠️ ID ${product.id} falhou após ${MAX_TENTATIVAS_POR_PRODUTO} tentativas. Movendo para próximo.`
           );
           await prisma.product.update({
             where: { id: product.id },
@@ -326,13 +340,12 @@ async function runExpertBot() {
       }
 
       console.log(
-        `\n[${processadosHoje + 1}/${LIMITE_DIARIO}] 📡 Auditando: ${product.name} (ID: ${product.id})`,
+        `\n[${processadosHoje + 1}/${LIMITE_DIARIO}] 📡 Auditando: ${product.name} (ID: ${product.id}) | Listing SKU: ${listing.sku} | Store: ${listing.store}`
       );
 
       try {
-        // Proteção contra truncamento de JSON na transmissão
-        const specsText = product.rawDetails
-          ? JSON.stringify(product.rawDetails).substring(0, 5000)
+        const specsText = listing.rawDetails
+          ? JSON.stringify(listing.rawDetails).substring(0, 5000)
           : "No specific details provided.";
 
         const response = await axios.post(
@@ -344,61 +357,61 @@ async function runExpertBot() {
                   {
                     text: `Act as a Lead Product Specialist and Technical Auditor. Your mission is to provide a high-value technical analysis to populate a database with standardized, comparable metrics.
 
-                          CONTEXT: The user has provided VERIFIED data for the North American market. All products provided are REAL. Use your updated 2026 knowledge base to validate specs for established platforms. Do not deny the product's existence or use placeholder language.
+CONTEXT: The user has provided VERIFIED data for the North American market. All products provided are REAL. Use your updated 2026 knowledge base to validate specs for established platforms. Do not deny the product's existence or use placeholder language.
 
-                          PRODUCT: ${product.name}
-                          Brand: ${product.brand}
-                          Specs Provided (VERIFIED): ${specsText}
+PRODUCT: ${product.name}
+Brand: ${product.brand}
+Specs Provided (VERIFIED): ${specsText}
 
-                          STRICT ANALYTICAL MANDATE:
-                          1. ABSOLUTE TRUTH & RESEARCH INTEGRITY: Treat 'Specs Provided' as factual. Complement this by using ONLY official manufacturer sites and reputable technical reviews (e.g., Digital Foundry, RTINGs, AnandTech) to incorporate real-world details.
+STRICT ANALYTICAL MANDATE:
+1. ABSOLUTE TRUTH & RESEARCH INTEGRITY: Treat 'Specs Provided' as factual. Complement this by using ONLY official manufacturer sites and reputable technical reviews (e.g., Digital Foundry, RTINGs, AnandTech) to incorporate real-world details.
 
-                          2. INTERNAL AUDIT & SILENT CORRECTION: If you detect discrepancies, inaccuracies, or omissions in the 'Specs Provided' compared to official technical documentation, you MUST correct them silently. Present the verified technical truth as the only reality. DO NOT mention that the provided specs were wrong, do not list input errors in the 'cons', and do not use phrases like "contrary to provided data". Deliver a polished, expert-grade final result.
+2. INTERNAL AUDIT & SILENT CORRECTION: If you detect discrepancies, inaccuracies, or omissions in the 'Specs Provided' compared to official technical documentation, you MUST correct them silently. Present the verified technical truth as the only reality. DO NOT mention that the provided specs were wrong, do not list input errors in the 'cons', and do not use phrases like "contrary to provided data". Deliver a polished, expert-grade final result.
 
-                          3. TOTAL ANTI-HALLUCINATION SILENCE: This rule applies to EVERY field. If a specific technical detail is NOT provided in the specs AND cannot be verified by official sources, DO NOT CITE, HINT, OR INVENT IT.
+3. TOTAL ANTI-HALLUCINATION SILENCE: This rule applies to EVERY field. If a specific technical detail is NOT provided in the specs AND cannot be verified by official sources, DO NOT CITE, HINT, OR INVENT IT.
 
-                          4. MANDATORY NAMING & FLUENCY RULES: 
-                            - The 'intro' and 'verdict' fields MUST start by mentioning the full PRODUCT NAME.
-                            - Use professional synonyms like 'This system', 'The architecture', 'The unit', or 'This platform'.
-                            - No marketing adjectives. Use technical nouns and numerical ranges (e.g., "1.5mm travel", "300 nits").
+4. MANDATORY NAMING & FLUENCY RULES:
+  - The 'intro' and 'verdict' fields MUST start by mentioning the full PRODUCT NAME.
+  - Use professional synonyms like 'This system', 'The architecture', 'The unit', or 'This platform'.
+  - No marketing adjectives. Use technical nouns and numerical ranges (e.g., "1.5mm travel", "300 nits").
 
-                          5. CATEGORY-SPECIFIC KPI HIERARCHY:
-                            - [GAMES]: 1. Target Res/FPS | 2. Engine Tech | 3. Input Latency.
-                            - [ELECTRONICS/COMPUTING]: 1. SoC-Architecture/Clock | 2. Thermal Efficiency (TDP) | 3. Interface Bandwidth.
-                            - [APPLIANCES/INDUSTRIAL]: 1. Peak Draw (W) | 2. Lifecycle (MTBF/IP Rating) | 3. Noise/Vibration (dB).
-                            - [TOOLS/HARDWARE]: 1. Torque/Power Output | 2. Material Grade | 3. Runtime/Duty Cycle.
+5. CATEGORY-SPECIFIC KPI HIERARCHY:
+  - [GAMES]: 1. Target Res/FPS | 2. Engine Tech | 3. Input Latency.
+  - [ELECTRONICS/COMPUTING]: 1. SoC-Architecture/Clock | 2. Thermal Efficiency (TDP) | 3. Interface Bandwidth.
+  - [APPLIANCES/INDUSTRIAL]: 1. Peak Draw (W) | 2. Lifecycle (MTBF/IP Rating) | 3. Noise/Vibration (dB).
+  - [TOOLS/HARDWARE]: 1. Torque/Power Output | 2. Material Grade | 3. Runtime/Duty Cycle.
 
-                          6. MERIT CALCULATION ALGORITHM:
-                            - BASE SCORE: 5.0. 
-                            - KPI PERFORMANCE: Add +1.0 for each KPI exceeding segment average; Subtract -1.0 for each KPI below.
-                            - LEADERSHIP BONUS: Add +1.5 ONLY if 2 or more KPIs exceed segment standards by >15%.
+6. MERIT CALCULATION ALGORITHM:
+  - BASE SCORE: 5.0.
+  - KPI PERFORMANCE: Add +1.0 for each KPI exceeding segment average; Subtract -1.0 for each KPI below.
+  - LEADERSHIP BONUS: Add +1.5 ONLY if 2 or more KPIs exceed segment standards by >15%.
 
-                          7. DATA MATURITY & CONFIDENCE:
-                            - Assign "data_maturity": "complete", "partial", "pre_release", or "insufficient".
-                            - Assign "confidence_level": 0.0 to 1.0.
+7. DATA MATURITY & CONFIDENCE:
+  - Assign "data_maturity": "complete", "partial", "pre_release", or "insufficient".
+  - Assign "confidence_level": 0.0 to 1.0.
 
-                          8. NO PRICING DATA: Do NOT mention prices or currency.
+8. NO PRICING DATA: Do NOT mention prices or currency.
 
-                          9. VERDICT COHESION: The 'verdict' must be the technical climax starting with the full PRODUCT NAME. Summarize engineering achievements.
+9. VERDICT COHESION: The 'verdict' must be the technical climax starting with the full PRODUCT NAME. Summarize engineering achievements.
 
-                          IMPORTANT: Return ONLY a valid raw JSON object. Do not include markdown backticks (e.g., no \`\`\`json). Do not include search citations, grounding links, or footnotes like [1] or [2] inside the values. The response must start with '{' and end with '}'.
+IMPORTANT: Return ONLY a valid raw JSON object. Do not include markdown backticks (e.g., no \`\`\`json). Do not include search citations, grounding links, or footnotes like [1] or [2] inside the values. The response must start with '{' and end with '}'.
 
-                          OUTPUT STRUCTURE (JSON):
-                          {
-                            "expert_score": number,
-                            "confidence_level": number,
-                            "data_maturity": "string",
-                            "target_competitors": ["Direct Rival Model 1", "Direct Rival Model 2"],
-                            "intro": "Technical summary starting with [PRODUCT NAME]...",
-                            "technical_specs_analysis": {
-                              "performance_efficiency": "Analysis of core KPIs. No speculation.",
-                              "build_longevity": "Analysis of durability and lifecycle. No speculation.",
-                              "operational_impact": "Analysis of physical/digital footprint."
-                            },
-                            "pros": ["Specific verified technical advantage"],
-                            "cons": ["Specific verified technical limitation"],
-                            "verdict": "Technical climax starting with [PRODUCT NAME]... Strictly no price mentions."
-                    }`,
+OUTPUT STRUCTURE (JSON):
+{
+  "expert_score": number,
+  "confidence_level": number,
+  "data_maturity": "string",
+  "target_competitors": ["Direct Rival Model 1", "Direct Rival Model 2"],
+  "intro": "Technical summary starting with [PRODUCT NAME]...",
+  "technical_specs_analysis": {
+    "performance_efficiency": "Analysis of core KPIs. No speculation.",
+    "build_longevity": "Analysis of durability and lifecycle. No speculation.",
+    "operational_impact": "Analysis of physical/digital footprint."
+  },
+  "pros": ["Specific verified technical advantage"],
+  "cons": ["Specific verified technical limitation"],
+  "verdict": "Technical climax starting with [PRODUCT NAME]... Strictly no price mentions."
+}`,
                   },
                 ],
               },
@@ -411,7 +424,7 @@ async function runExpertBot() {
             httpAgent,
             httpsAgent,
             timeout: 100000,
-          },
+          }
         );
 
         if (response.status === 200) {
@@ -420,19 +433,13 @@ async function runExpertBot() {
           console.log("✅ Chave operacional. Resetando contadores de falha.");
         }
 
-        // RESET DE FALHAS: Se a requisição HTTP retornou (qualquer status), a chave não está necessariamente "morta",
-        // mas se for 200 OK, resetamos o contador de exaustão sistêmica.
-
         const candidate = response.data?.candidates?.[0];
 
-        // TRATAMENTO DE BLOQUEIO DE SEGURANÇA (AI Safety)
         if (
           candidate?.finishReason === "SAFETY" ||
           candidate?.finishReason === "OTHER"
         ) {
-          console.warn(
-            `🛑 Bloqueado pela Política de Segurança da Google (ID: ${product.id})`,
-          );
+          console.warn(`🛑 Bloqueado pela Política de Segurança da Google (ID: ${product.id})`);
           await prisma.product.update({
             where: { id: product.id },
             data: {
@@ -456,18 +463,17 @@ async function runExpertBot() {
 
             if (!validation.success) {
               throw new Error(
-                `Zod Validation: ${JSON.stringify(validation.error.format())}`,
+                `Zod Validation: ${JSON.stringify(validation.error.format())}`
               );
             }
 
             const aiResult = validation.data;
 
-            // Normalização de métricas (Proteção contra NaN ou Off-range)
             const scoreFinal = Number(
-              Math.min(10, Math.max(0, aiResult.expert_score)).toFixed(1),
+              Math.min(10, Math.max(0, aiResult.expert_score)).toFixed(1)
             );
             const confidenceFinal = Number(
-              Math.min(1, Math.max(0, aiResult.confidence_level)).toFixed(2),
+              Math.min(1, Math.max(0, aiResult.confidence_level)).toFixed(2)
             );
 
             let finalStatus = "VALID";
@@ -483,7 +489,6 @@ async function runExpertBot() {
               revalidateAfter = dateTarget;
             }
 
-            // ATUALIZAÇÃO TRANSACIONAL (Lógica atômica por registro)
             await prisma.product.update({
               where: { id: product.id },
               data: {
@@ -494,19 +499,16 @@ async function runExpertBot() {
                 expertNeedsRevalidation: needsRevalidation,
                 expertRevalidateAfter: revalidateAfter,
                 expertLastChecked: agora,
-                expertLastUpdated: agora, // Mantém rastro auditável
+                expertLastUpdated: agora,
               },
             });
 
             processadosHoje++;
             console.log(
-              `✅ [${finalStatus}] ID: ${product.id} | Score: ${scoreFinal} | Conf: ${confidenceFinal}`,
+              `✅ [${finalStatus}] ID: ${product.id} | Score: ${scoreFinal} | Conf: ${confidenceFinal}`
             );
           } catch (e) {
-            console.error(
-              `❌ Erro de Parsing/Schema no ID ${product.id}:`,
-              e.message,
-            );
+            console.error(`❌ Erro de Parsing/Schema no ID ${product.id}:`, e.message);
             await prisma.product.update({
               where: { id: product.id },
               data: {
@@ -519,7 +521,6 @@ async function runExpertBot() {
                 },
               },
             });
-            // Mesmo com erro de parse, contamos como processado para não entrar em loop infinito
             processadosHoje++;
           }
         } else {
@@ -532,12 +533,9 @@ async function runExpertBot() {
         if (status === 429) {
           console.warn(`⚠️ Quota 429 atingida. Rotacionando chave...`);
           apiKeyAtiva = await getNextKey();
-          await new Promise((r) => setTimeout(r, 5000)); // Pequena pausa extra
+          await new Promise((r) => setTimeout(r, 5000));
         } else if (status === 400) {
-          console.error(
-            `🚨 Erro 400 (Bad Request) no ID ${product.id}. Verificando payload...`,
-          );
-          // Geralmente erro de parâmetro. Marcamos como erro e seguimos.
+          console.error(`🚨 Erro 400 (Bad Request) no ID ${product.id}. Verificando payload...`);
           await prisma.product.update({
             where: { id: product.id },
             data: { expertStatus: "ERROR", expertLastChecked: agora },
@@ -545,13 +543,11 @@ async function runExpertBot() {
           processadosHoje++;
         } else {
           console.error(`🌐 Erro de Rede/API no ID ${product.id}: ${errorMsg}`);
-          // Para erros de rede, tentamos rotacionar a chave antes da próxima tentativa
           apiKeyAtiva = await getNextKey();
           await new Promise((r) => setTimeout(r, 10000));
         }
       }
 
-      // Cálculo dinâmico do intervalo para manter o ritmo constante de 0.75/min
       const elapsed = Date.now() - loopStart;
       const waitTime = Math.max(0, INTERVALO_MS - elapsed);
       await new Promise((resolve) => setTimeout(resolve, waitTime));
@@ -564,7 +560,6 @@ async function runExpertBot() {
   }
 }
 
-// Inicialização segura
 runExpertBot().catch((err) => {
   console.error("💀 Falha fatal na inicialização:", err);
   process.exit(1);

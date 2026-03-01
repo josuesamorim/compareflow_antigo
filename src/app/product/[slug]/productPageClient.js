@@ -17,13 +17,28 @@ function normalizeConditionKey(condition) {
 
   if (raw === "new" || raw === "brand new" || raw === "novo") return "new";
 
-  if (raw.includes("open box") || raw.includes("open-box") || raw.includes("openbox") || raw.includes("open_box"))
+  if (
+    raw.includes("open box") ||
+    raw.includes("open-box") ||
+    raw.includes("openbox") ||
+    raw.includes("open_box")
+  )
     return "open-box";
 
-  if (raw.includes("refurb") || raw.includes("renewed") || raw.includes("reconditioned") || raw.includes("certified"))
+  if (
+    raw.includes("refurb") ||
+    raw.includes("renewed") ||
+    raw.includes("reconditioned") ||
+    raw.includes("certified")
+  )
     return "refurbished";
 
-  if (raw.includes("pre-owned") || raw.includes("preowned") || raw.includes("used") || raw.includes("seminovo"))
+  if (
+    raw.includes("pre-owned") ||
+    raw.includes("preowned") ||
+    raw.includes("used") ||
+    raw.includes("seminovo")
+  )
     return "pre-owned";
 
   return raw.replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || "new";
@@ -82,7 +97,9 @@ function ProductHeroImage({ images = [], alt, isMobile = false }) {
     setUseFallback(images.length === 0);
   }, [imagesKey]);
 
-  const currentSrc = useFallback ? fallbackPlaceholder : images[currentIndex] || fallbackPlaceholder;
+  const currentSrc = useFallback
+    ? fallbackPlaceholder
+    : images[currentIndex] || fallbackPlaceholder;
 
   const handleError = () => {
     if (currentIndex < images.length - 1) {
@@ -267,9 +284,13 @@ function ProductContent({ initialProduct }) {
 
     // 2) Se temos condição pedida, pega a menor dessa condição
     if (requestedConditionKey) {
-      const candidates = offers.filter((o) => normalizeConditionKey(o?.condition) === requestedConditionKey);
+      const candidates = offers.filter(
+        (o) => normalizeConditionKey(o?.condition) === requestedConditionKey,
+      );
       if (candidates.length > 0) {
-        const sorted = [...candidates].sort((a, b) => Number(a.currentPrice || 0) - Number(b.currentPrice || 0));
+        const sorted = [...candidates].sort(
+          (a, b) => Number(a.currentPrice || 0) - Number(b.currentPrice || 0),
+        );
         return sorted[0];
       }
     }
@@ -286,14 +307,24 @@ function ProductContent({ initialProduct }) {
 
   // COLETA DE IMAGENS EM CASCATA (Fallback)
   // ✅ Prioriza a imagem da oferta selecionada primeiro (consistência visual)
-  const allPossibleImages = [bestOffer?.image, product.image, ...offers.map((offer) => offer.image)].filter(Boolean);
+  const allPossibleImages = [
+    bestOffer?.image,
+    product.image,
+    ...offers.map((offer) => offer.image),
+  ].filter(Boolean);
 
   const uniqueImagesList = [...new Set(allPossibleImages)];
 
   const displayModel = cleanText(
-    product.rawDetails?.model_number || product.rawDetails?.product_model || product.rawDetails?.Model,
+    product.rawDetails?.model_number ||
+      product.rawDetails?.product_model ||
+      product.rawDetails?.Model,
   );
-  const displayColor = cleanText(product.rawDetails?.color || product.rawDetails?.colour || product.rawDetails?.Color);
+  const displayColor = cleanText(
+    product.rawDetails?.color ||
+      product.rawDetails?.colour ||
+      product.rawDetails?.Color,
+  );
 
   const handleGoToStore = () => {
     if (typeof window !== "undefined" && typeof window.dataLayer !== "undefined") {
@@ -309,20 +340,22 @@ function ProductContent({ initialProduct }) {
   };
 
   const hasValidAIReview =
-    product.expertScore && product.expertReview && product.expertLastUpdated && !product.expertReview?.error;
+    product.expertScore &&
+    product.expertReview &&
+    product.expertLastUpdated &&
+    !product.expertReview?.error;
 
   const navItems = [
     { label: "Store Offers", id: "offers-pc" },
     { label: "Price History", id: "history-pc" },
+    // ✅ SWAP: Expert Analysis antes de Product Specs
+    ...(hasValidAIReview ? [{ label: "Expert Analysis", id: "analysis-pc" }] : []),
     { label: "Product Specs", id: "specs-pc" },
   ];
 
-  if (hasValidAIReview) {
-    navItems.push({ label: "Expert Analysis", id: "analysis-pc" });
-  }
-
   // ✅ Condição inicial para o PriceAnalyzer bater com o topo da página
-  const analyzerInitialCondition = bestOffer?.condition || product?.selectedCondition || conditionQS || "NEW";
+  const analyzerInitialCondition =
+    bestOffer?.condition || product?.selectedCondition || conditionQS || "NEW";
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -347,7 +380,9 @@ function ProductContent({ initialProduct }) {
               {/* LÓGICA DE ESTOQUE NO PREÇO PRINCIPAL MOBILE */}
               <div className="flex items-center gap-4 bg-gray-900 rounded-2xl p-4 text-white border-l-[6px] border-[#ffdb00] shadow-xl">
                 <div className="flex-1">
-                  <p className="text-[#ffdb00] font-black text-[9px] uppercase">{bestOffer ? "Starting at" : "Currently"}</p>
+                  <p className="text-[#ffdb00] font-black text-[9px] uppercase">
+                    {bestOffer ? "Starting at" : "Currently"}
+                  </p>
                   <p className="text-3xl font-black tracking-tighter">
                     {bestOffer ? `$${lowestPrice.toFixed(2)}` : "Out of Stock"}
                   </p>
@@ -399,17 +434,20 @@ function ProductContent({ initialProduct }) {
             )}
           </section>
 
+          {/* ✅ SWAP MOBILE: ExpertReviewAI antes de TechnicalSpecs */}
+          {hasValidAIReview && (
+            <div id="analysis-mobile">
+              <ExpertReviewAI review={product.expertReview} score={product.expertScore} />
+            </div>
+          )}
+
           <section className="bg-white p-6 rounded-2xl border border-slate-100" aria-label="Specifications">
-            <h2 className="text-[10px] font-black uppercase mb-6 text-slate-400 tracking-widest">Specifications</h2>
+            <h2 className="text-[10px] font-black uppercase mb-6 text-slate-400 tracking-widest">
+              Specifications
+            </h2>
             <TechnicalSpecs rawDetails={product.rawDetails} />
           </section>
         </div>
-
-        {hasValidAIReview && (
-          <div id="analysis-mobile">
-            <ExpertReviewAI review={product.expertReview} score={product.expertScore} />
-          </div>
-        )}
       </div>
 
       {/* DESKTOP UI */}
@@ -519,6 +557,13 @@ function ProductContent({ initialProduct }) {
               </div>
             </section>
 
+            {/* ✅ SWAP DESKTOP: ExpertReviewAI antes de TechnicalSpecs */}
+            {hasValidAIReview && (
+              <section id="analysis-pc" className="scroll-mt-36">
+                <ExpertReviewAI review={product.expertReview} score={product.expertScore} />
+              </section>
+            )}
+
             <section id="specs-pc" className="scroll-mt-36">
               <h2 className="text-xs font-black uppercase mb-8 text-slate-400 tracking-[0.3em] flex items-center gap-4">
                 Technical Data <span className="h-[1px] flex-1 bg-slate-200"></span>
@@ -528,7 +573,9 @@ function ProductContent({ initialProduct }) {
                 <div className="grid grid-cols-3 gap-12 italic font-black uppercase text-center border-b border-slate-100 pb-10 mb-8">
                   <div className="min-w-0">
                     <p className="text-[10px] text-slate-400 mb-2 tracking-widest">Brand</p>
-                    <span className="truncate block text-blue-600 text-lg">{cleanText(product.brand)}</span>
+                    <span className="truncate block text-blue-600 text-lg">
+                      {cleanText(product.brand)}
+                    </span>
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] text-slate-400 mb-2 tracking-widest">Model</p>
@@ -543,12 +590,6 @@ function ProductContent({ initialProduct }) {
                 <TechnicalSpecs rawDetails={product.rawDetails} />
               </div>
             </section>
-
-            {hasValidAIReview && (
-              <section id="analysis-pc" className="scroll-mt-36">
-                <ExpertReviewAI review={product.expertReview} score={product.expertScore} />
-              </section>
-            )}
           </div>
         </main>
       </div>

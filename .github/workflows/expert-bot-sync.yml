@@ -1,0 +1,52 @@
+name: PRICELAB Expert Analysis Sync
+
+on:
+  schedule:
+    # Roda todos os dias às 6:00 UTC (03:00 da manhã no Brasil)
+    - cron: '0 6 * * *'
+  workflow_dispatch: # Permite que você clique no botão "Run workflow" para testar agora
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    # VITAL: Certifique-se de que este ambiente existe no seu GitHub ou use Repository Secrets
+    environment: "pricelab"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Recomendado usar a LTS estável para automações
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        env:
+          # Use o DIRECT_URL para migrações e conexões persistentes em serverless
+          DATABASE_URL_SUPABASE: ${{ secrets.DIRECT_URL_SUPABASE }}
+
+      - name: Run Expert Bot Analysis
+        run: node expert_bot_v25.js
+        env:
+          # Variáveis do Banco de Dados
+          DATABASE_URL_SUPABASE: ${{ secrets.DIRECT_URL_SUPABASE }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL_SUPABASE }}
+          
+          # Pool de Chaves da API Gemini (Multi-Key Support para evitar Erro 429)
+          # Certifique-se de adicionar cada uma destas chaves nos Secrets do GitHub
+          GEMINI_EXPERT_BOT: ${{ secrets.GEMINI_EXPERT_BOT }}
+          GEMINI_EXPERT_BOT2: ${{ secrets.GEMINI_EXPERT_BOT2 }}
+          GEMINI_EXPERT_BOT3: ${{ secrets.GEMINI_EXPERT_BOT3 }}
+          GEMINI_EXPERT_BOT4: ${{ secrets.GEMINI_EXPERT_BOT4 }}
+          GEMINI_EXPERT_BOT5: ${{ secrets.GEMINI_EXPERT_BOT5 }}
+          GEMINI_EXPERT_BOT6: ${{ secrets.GEMINI_EXPERT_BOT6 }}
+          GEMINI_EXPERT_BOT7: ${{ secrets.GEMINI_EXPERT_BOT7 }}
+          GEMINI_EXPERT_BOT8: ${{ secrets.GEMINI_EXPERT_BOT8 }}
+          GEMINI_EXPERT_BOT9: ${{ secrets.GEMINI_EXPERT_BOT9 }}
+          GEMINI_EXPERT_BOT10: ${{ secrets.GEMINI_EXPERT_BOT10 }}

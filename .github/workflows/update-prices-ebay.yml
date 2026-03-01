@@ -1,0 +1,48 @@
+name: PRICELAB Ebay Daily Sync
+
+on:
+  schedule:
+    # Roda todos os dias às 10:00 UTC (07:00 da manhã no Brasil)
+    - cron: '0 10 * * *'
+  workflow_dispatch: # Permite rodar manualmente para testes
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # VITAL: Conecta o Job ao ambiente onde seus segredos estão guardados
+    environment: "pricelab"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '23.9.0' 
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        env:
+          PRICELAB_SUPABASE_DB: ${{ secrets.PRICELAB_SUPABASE_DB }}
+
+      - name: Run Ebay Sync
+        run: node ebay_oficial_sellers_sync_v25.js
+        env:
+    
+          EBAY_APP_ID: ${{ secrets.EBAY_APP_ID }}
+          EBAY_CERT_ID: ${{ secrets.EBAY_CERT_ID }}
+
+      - name: Revalidate Vercel Cache
+        run: node revalidade-next.js
+        env:
+          # IMPORTANTE: Como estes segredos estão em pastas DIFERENTES no seu print, 
+          # certifique-se de copiá-los também para a pasta "Update prices" no GitHub
+          # ou movê-los para Repository Secrets (Globais).
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
+          BASE_URL: ${{ secrets.BASE_URL }}
+      
