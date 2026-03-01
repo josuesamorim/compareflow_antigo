@@ -1,6 +1,6 @@
 // revalidate.js
-const REVALIDATION_SECRET = process.env.REVALIDATION_SECRET; 
-const BASE_URL = process.env.BASE_URL;
+const REVALIDATION_SECRET = '6f92d4b1-8e3a-4c2d-9b5a-7f1e8c9d0a3b'; 
+const REVALIDATE_BASE_URL = 'https://pricelab.tech';
 
 async function purgeCache() {
   console.log("🚀 Iniciando revalidação global do cache na Vercel...");
@@ -14,7 +14,7 @@ async function purgeCache() {
   // 1. Revalidação por TAGS
   for (const tag of tagsToClean) {
     try {
-      const response = await fetch(`${BASE_URL}/api/revalidate?tag=${tag}`, {
+      const response = await fetch(`${REVALIDATE_BASE_URL}/api/revalidate?tag=${tag}`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${REVALIDATION_SECRET}`,
@@ -37,7 +37,7 @@ async function purgeCache() {
   // 2. Revalidação por PATH (Limpeza de cache de página)
   for (const path of pathsToClean) {
     try {
-      const response = await fetch(`${BASE_URL}/api/revalidate?path=${path}`, {
+      const response = await fetch(`${REVALIDATE_BASE_URL}/api/revalidate?path=${path}`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${REVALIDATION_SECRET}`,
