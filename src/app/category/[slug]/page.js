@@ -24,73 +24,81 @@ function safeBrandName(brand) {
 }
 
 /**
- * ✅ UPC / EAN VALIDATION (Checksum)
- * - gtin12: valida UPC-A 12 dígitos (checksum real)
- * - gtin13: valida EAN-13 13 dígitos (checksum real)
- * Retorna string apenas se válido. Caso contrário, null.
+ * ✅ Texto seguro para SEO/JSON-LD (defensivo)
  */
-function isValidUPC12(digits12) {
-  if (!digits12) return false;
-  const d = String(digits12).replace(/\D/g, "");
-  if (d.length !== 12) return false;
-
-  const nums = d.split("").map((n) => Number(n));
-  const checkDigit = nums[11];
-
-  let oddSum = 0; // posições 1,3,5,7,9,11 (0,2,4,6,8,10)
-  let evenSum = 0; // posições 2,4,6,8,10 (1,3,5,7,9)
-
-  for (let i = 0; i < 11; i++) {
-    if (i % 2 === 0) oddSum += nums[i];
-    else evenSum += nums[i];
-  }
-
-  const total = oddSum * 3 + evenSum;
-  const calc = (10 - (total % 10)) % 10;
-
-  return calc === checkDigit;
+function safeText(v, max = 300) {
+  if (v == null) return "";
+  const s = String(v).replace(/[\x00-\x1F\x7F-\x9F]/g, "").trim();
+  if (!s) return "";
+  return s.length > max ? s.slice(0, max) : s;
 }
 
-function isValidEAN13(digits13) {
-  if (!digits13) return false;
-  const d = String(digits13).replace(/\D/g, "");
-  if (d.length !== 13) return false;
+function digitsOnly(v) {
+  return String(v ?? "").replace(/\D/g, "");
+}
 
-  const nums = d.split("").map((n) => Number(n));
-  const checkDigit = nums[12];
+/**
+ * GTIN / UPC validation (length + check digit) — GS1
+ * - gtin12: UPC-A (12)
+ * - gtin13: EAN-13 (13)
+ * - gtin14: GTIN-14 (14)
+ */
+function isValidGtin(digits) {
+  const ds = digitsOnly(digits);
+  if (!(ds.length === 12 || ds.length === 13 || ds.length === 14)) return false;
 
+  const arr = ds.split("").map((x) => Number(x));
+  if (arr.some((n) => !Number.isFinite(n))) return false;
+
+  const checkDigit = arr[arr.length - 1];
+  const body = arr.slice(0, -1);
+
+  // From rightmost of body: weights alternate 3/1
   let sum = 0;
-  for (let i = 0; i < 12; i++) {
-    // posições ímpares (1,3,5...) peso 1; pares (2,4,6...) peso 3
-    sum += nums[i] * (i % 2 === 0 ? 1 : 3);
+  let use3 = true;
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += body[i] * (use3 ? 3 : 1);
+    use3 = !use3;
   }
-
   const calc = (10 - (sum % 10)) % 10;
   return calc === checkDigit;
 }
 
 function safeGtin12(upc) {
   if (upc == null) return null;
-  const digits = String(upc).replace(/\D/g, "");
-  if (digits.length !== 12) return null;
-  return isValidUPC12(digits) ? digits : null;
+  const ds = digitsOnly(upc);
+  if (ds.length !== 12) return null;
+  return isValidGtin(ds) ? ds : null;
 }
 
 function safeGtin13(ean) {
   if (ean == null) return null;
-  const digits = String(ean).replace(/\D/g, "");
-  if (digits.length !== 13) return null;
-  return isValidEAN13(digits) ? digits : null;
+  const ds = digitsOnly(ean);
+  if (ds.length !== 13) return null;
+  return isValidGtin(ds) ? ds : null;
+}
+
+function safeGtin14(gtin) {
+  if (gtin == null) return null;
+  const ds = digitsOnly(gtin);
+  if (ds.length !== 14) return null;
+  return isValidGtin(ds) ? ds : null;
 }
 
 function normalizeConditionToSchemaUrl(cond) {
   const c = (cond ?? "").toString().trim().toLowerCase();
   if (!c) return "https://schema.org/NewCondition";
   if (c === "new" || c.includes("brand new")) return "https://schema.org/NewCondition";
-  if (c.includes("refurb") || c.includes("renewed") || c.includes("reconditioned") || c.includes("certified"))
+  if (
+    c.includes("refurb") ||
+    c.includes("renewed") ||
+    c.includes("reconditioned") ||
+    c.includes("certified")
+  )
     return "https://schema.org/RefurbishedCondition";
   if (c.includes("open") && c.includes("box")) return "https://schema.org/UsedCondition";
-  if (c.includes("used") || c.includes("pre-owned") || c.includes("preowned")) return "https://schema.org/UsedCondition";
+  if (c.includes("used") || c.includes("pre-owned") || c.includes("preowned"))
+    return "https://schema.org/UsedCondition";
   return "https://schema.org/NewCondition";
 }
 
@@ -165,7 +173,7 @@ export default async function Page({ params }) {
      * QUERY RAW ATUALIZADA (V25)
      * ✅ Mantém: melhor listing por produto (menor preço), filtrando só ativas.
      * ✅ Mantém: imagem vindo da listing.
-     * ✅ Adiciona: UPC do produto (se existir) para JSON-LD (gtin12/gtin13).
+     * ✅ Adiciona: UPC do produto (se existir) para JSON-LD (gtin12/gtin13/gtin14).
      * ✅ Adiciona: online_availability para JSON-LD (availability).
      */
     const rawProducts = await prisma.$queryRaw`
@@ -287,10 +295,10 @@ export default async function Page({ params }) {
   }
 
   /**
-   * ✅ JSON-LD (Categoria) — Melhorias aplicadas:
+   * ✅ JSON-LD (Categoria)
    * - CollectionPage + ItemList
-   * - Cada item: Product com @id, brand, gtin (UPC/EAN), Offer com availability
-   * - Audience US (foco total)
+   * - Cada item: Product com @id, brand, gtin (UPC/EAN/GTIN14), Offer com availability
+   * - Audience US
    * - inLanguage en-US
    * - BreadcrumbList
    */
@@ -303,11 +311,15 @@ export default async function Page({ params }) {
     const productUrl = `https://pricelab.tech/product/${p3.slug}`;
     const brandName = safeBrandName(p3.brand) || "Top Brands";
 
+    const rawUpc = p3.upc || null;
     // ✅ Somente inclui se checksum válido
-    const gtin12 = safeGtin12(p3.upc);
-    const gtin13 = !gtin12 ? safeGtin13(p3.upc) : null;
+    const gtin12 = safeGtin12(rawUpc);
+    const gtin13 = !gtin12 ? safeGtin13(rawUpc) : null;
+    const gtin14 = !gtin12 && !gtin13 ? safeGtin14(rawUpc) : null;
 
-    const offerAvailability = p3.onlineAvailability ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
+    const offerAvailability = p3.onlineAvailability
+      ? "https://schema.org/InStock"
+      : "https://schema.org/OutOfStock";
 
     const offer = {
       "@type": "Offer",
@@ -317,11 +329,13 @@ export default async function Page({ params }) {
       availability: offerAvailability,
       itemCondition: normalizeConditionToSchemaUrl(p3.condition),
       // Pra não “mentir”: validade curta (se quiser, pode ajustar)
-      priceValidUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      priceValidUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10),
       seller: p3.store
         ? {
             "@type": "Organization",
-            name: String(p3.store),
+            name: safeText(p3.store, 80) || String(p3.store).slice(0, 80),
           }
         : undefined,
     };
@@ -329,15 +343,16 @@ export default async function Page({ params }) {
     const productJsonLd = {
       "@type": "Product",
       "@id": `${productUrl}#product`,
-      name: p3.name,
-      image: p3.image ? [p3.image] : undefined,
+      name: safeText(p3.name, 140) || "Product",
+      image: p3.image ? [String(p3.image)] : undefined,
       url: productUrl,
       brand: {
         "@type": "Brand",
-        name: brandName,
+        name: safeText(brandName, 80) || "Top Brands",
       },
       ...(gtin12 ? { gtin12 } : {}),
       ...(gtin13 ? { gtin13 } : {}),
+      ...(gtin14 ? { gtin14 } : {}),
       offers: offer,
     };
 
@@ -391,7 +406,7 @@ export default async function Page({ params }) {
       url: "https://pricelab.tech/",
     },
     primaryImageOfPage: initialData.products?.[0]?.image
-      ? { "@type": "ImageObject", url: initialData.products[0].image }
+      ? { "@type": "ImageObject", url: String(initialData.products[0].image) }
       : undefined,
     dateModified: nowIso,
     audience: {
@@ -414,8 +429,14 @@ export default async function Page({ params }) {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(categoryJsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(categoryJsonLd) }}
+      />
 
       <CategoryPage initialSEOData={initialData.products} serverTotal={initialData.totalCount} />
     </>

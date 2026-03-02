@@ -40,7 +40,7 @@ function ProductImage({ src, alt, condition, priority = false }) {
 
   // Placeholder caso a imagem falhe
   // (mantém externo, mas você pode trocar por "/no-image.png" se preferir 100% local)
-  const fallbackSrc = `https://placehold.co/400x400/f8fafc/cbd5e1?text=No+Image`;
+  const fallbackSrc = `/no-image.png`;
 
   const finalSrc = error ? fallbackSrc : src || fallbackSrc;
 

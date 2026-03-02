@@ -77,10 +77,16 @@ function normalizeConditionToSchemaUrl(cond) {
   const c = (cond ?? "").toString().trim().toLowerCase();
   if (!c) return "https://schema.org/NewCondition";
   if (c === "new" || c.includes("brand new")) return "https://schema.org/NewCondition";
-  if (c.includes("refurb") || c.includes("renewed") || c.includes("reconditioned") || c.includes("certified"))
+  if (
+    c.includes("refurb") ||
+    c.includes("renewed") ||
+    c.includes("reconditioned") ||
+    c.includes("certified")
+  )
     return "https://schema.org/RefurbishedCondition";
   if (c.includes("open") && c.includes("box")) return "https://schema.org/UsedCondition";
-  if (c.includes("used") || c.includes("pre-owned") || c.includes("preowned")) return "https://schema.org/UsedCondition";
+  if (c.includes("used") || c.includes("pre-owned") || c.includes("preowned"))
+    return "https://schema.org/UsedCondition";
   return "https://schema.org/NewCondition";
 }
 
@@ -88,6 +94,76 @@ function normalizeAvailabilityToSchemaUrl({ isExpired, onlineAvailability } = {}
   const expired = Boolean(isExpired);
   const inStock = Boolean(onlineAvailability);
   return !expired && inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
+}
+
+/**
+ * ✅ GTIN/UPC validation (length + check digit) — GS1
+ * - gtin12: UPC-A (12)
+ * - gtin13: EAN-13 (13)
+ * - gtin14: GTIN-14 (14)
+ */
+function digitsOnly(v) {
+  return String(v ?? "").replace(/\D/g, "");
+}
+
+function isValidGtin(digits) {
+  const ds = digitsOnly(digits);
+  if (!(ds.length === 12 || ds.length === 13 || ds.length === 14)) return false;
+
+  const arr = ds.split("").map((x) => Number(x));
+  if (arr.some((n) => !Number.isFinite(n))) return false;
+
+  const checkDigit = arr[arr.length - 1];
+  const body = arr.slice(0, -1);
+
+  // From rightmost of body: weights alternate 3/1
+  let sum = 0;
+  let use3 = true;
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += body[i] * (use3 ? 3 : 1);
+    use3 = !use3;
+  }
+  const calc = (10 - (sum % 10)) % 10;
+  return calc === checkDigit;
+}
+
+function safeGtin12(upc) {
+  if (upc == null) return null;
+  const ds = digitsOnly(upc);
+  if (ds.length !== 12) return null;
+  return isValidGtin(ds) ? ds : null;
+}
+
+function safeGtin13(ean) {
+  if (ean == null) return null;
+  const ds = digitsOnly(ean);
+  if (ds.length !== 13) return null;
+  return isValidGtin(ds) ? ds : null;
+}
+
+function safeGtin14(gtin) {
+  if (gtin == null) return null;
+  const ds = digitsOnly(gtin);
+  if (ds.length !== 14) return null;
+  return isValidGtin(ds) ? ds : null;
+}
+
+/**
+ * ✅ Remove keys undefined/null (limpeza forte pro JSON-LD)
+ */
+function stripNil(obj) {
+  if (!obj || typeof obj !== "object") return obj;
+  Object.keys(obj).forEach((k) => {
+    if (obj[k] === undefined || obj[k] === null || obj[k] === "") delete obj[k];
+  });
+  return obj;
+}
+
+/**
+ * ✅ Price validity conservadora (evita “mentir” e padroniza)
+ */
+function priceValidUntilISO(days = 7) {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 export default async function Page() {
@@ -103,6 +179,8 @@ export default async function Page() {
      *
      * ✅ SEO additions:
      * - condition + availability flags (for Offer JSON-LD)
+     * ✅ GTIN additions:
+     * - p.upc (para gtin12/gtin13/gtin14 quando válido)
      */
     const products = await prisma.$queryRaw`
       WITH SixMonthMax AS (
@@ -129,6 +207,7 @@ export default async function Page() {
           p.name,
           p.slug,
           p.brand,
+          p.upc,
           p.internal_category,
           p.normalized_model_key,
           COALESCE(h.max_price_6m, l.regular_price, l.sale_price) as reference_price
@@ -217,6 +296,7 @@ export default async function Page() {
         image: p.listing_image || "/placeholder-deal.jpg",
         slug: p.slug,
         brand: p.brand,
+        upc: p.upc || null,
         salePrice: sale,
         regularPrice: regular,
         affiliateUrl: p.affiliate_url,
@@ -241,7 +321,13 @@ export default async function Page() {
    * - CollectionPage + ItemList of Products (each with Offer, availability, condition, seller)
    * - Audience US + inLanguage en-US
    *
-   * NOTE: review/aggregateRating/priceValidUntil are intentionally omitted (optional; avoids inventing).
+   * ✅ GTIN improvements:
+   * - gtin12/gtin13/gtin14 ONLY if valid checksum
+   *
+   * ✅ Offer improvements:
+   * - priceValidUntil (conservador)
+   * - não envia price=0 para OutOfStock/price inválido
+   * - limpeza agressiva de undefined/null
    */
   const canonical = "https://pricelab.tech/todays-deals";
   const pageName = `Today's Top Deals in USA`;
@@ -260,20 +346,31 @@ export default async function Page() {
     const productUrl = `https://pricelab.tech/product/${encodeURIComponent(d.slug)}`;
     const brandName = safeBrandName(d.brand) || "Top Brands";
 
-    const offer = {
+    const rawUpc = d.upc || null;
+    const gtin12 = safeGtin12(rawUpc);
+    const gtin13 = !gtin12 ? safeGtin13(rawUpc) : null;
+    const gtin14 = !gtin12 && !gtin13 ? safeGtin14(rawUpc) : null;
+
+    const availability = normalizeAvailabilityToSchemaUrl(d);
+    const isInStock = availability === "https://schema.org/InStock";
+    const price = normalizePrice(d.salePrice);
+    const hasValidPrice = Number.isFinite(price) && price > 0;
+
+    const offer = stripNil({
       "@type": "Offer",
       url: d.affiliateUrl || productUrl,
-      price: normalizePrice(d.salePrice),
       priceCurrency: "USD",
-      availability: normalizeAvailabilityToSchemaUrl(d),
+      availability,
       itemCondition: normalizeConditionToSchemaUrl(d.condition),
+      priceValidUntil: priceValidUntilISO(7),
       seller: {
         "@type": "Organization",
         name: safeText(d.store, 60) || "Retailer",
       },
-    };
+      ...(isInStock && hasValidPrice ? { price } : {}),
+    });
 
-    const productJsonLd = {
+    const productJsonLd = stripNil({
       "@type": "Product",
       "@id": `${productUrl}#product`,
       name: safeText(d.name, 140) || "Product",
@@ -281,12 +378,11 @@ export default async function Page() {
       image: d.image ? [d.image] : undefined,
       brand: { "@type": "Brand", name: brandName },
       sku: d.sku ? String(d.sku) : undefined,
+      ...(gtin12 ? { gtin12 } : {}),
+      ...(gtin13 ? { gtin13 } : {}),
+      ...(gtin14 ? { gtin14 } : {}),
       offers: offer,
-    };
-
-    // remove undefined
-    Object.keys(productJsonLd).forEach((k) => productJsonLd[k] === undefined && delete productJsonLd[k]);
-    Object.keys(offer).forEach((k) => offer[k] === undefined && delete offer[k]);
+    });
 
     return {
       "@type": "ListItem",
@@ -324,7 +420,7 @@ export default async function Page() {
   };
 
   // clean undefined
-  Object.keys(todayDealsJsonLd).forEach((k) => todayDealsJsonLd[k] === undefined && delete todayDealsJsonLd[k]);
+  stripNil(todayDealsJsonLd);
 
   return (
     <>

@@ -30,7 +30,7 @@ function digitsOnly(v) {
 }
 
 /**
- * GTIN / UPC validation (length + check digit)
+ * GTIN / UPC validation (length + check digit) — GS1
  * - gtin12: UPC-A (12)
  * - gtin13: EAN-13 (13)
  * - gtin14: GTIN-14 (14)
@@ -87,15 +87,30 @@ function normalizeConditionKey(condition) {
   if (raw === "new" || raw === "brand new" || raw === "novo") return "new";
 
   // Open box
-  if (raw.includes("open box") || raw.includes("open-box") || raw.includes("openbox") || raw.includes("open_box"))
+  if (
+    raw.includes("open box") ||
+    raw.includes("open-box") ||
+    raw.includes("openbox") ||
+    raw.includes("open_box")
+  )
     return "open-box";
 
   // Refurb / renewed
-  if (raw.includes("refurb") || raw.includes("renewed") || raw.includes("reconditioned") || raw.includes("certified"))
+  if (
+    raw.includes("refurb") ||
+    raw.includes("renewed") ||
+    raw.includes("reconditioned") ||
+    raw.includes("certified")
+  )
     return "refurbished";
 
   // Pre-owned / used
-  if (raw.includes("pre-owned") || raw.includes("preowned") || raw.includes("used") || raw.includes("seminovo"))
+  if (
+    raw.includes("pre-owned") ||
+    raw.includes("preowned") ||
+    raw.includes("used") ||
+    raw.includes("seminovo")
+  )
     return "pre-owned";
 
   return raw.replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || "new";
@@ -105,10 +120,16 @@ function normalizeConditionToSchemaUrl(cond) {
   const c = (cond ?? "").toString().trim().toLowerCase();
   if (!c) return "https://schema.org/NewCondition";
   if (c === "new" || c.includes("brand new")) return "https://schema.org/NewCondition";
-  if (c.includes("refurb") || c.includes("renewed") || c.includes("reconditioned") || c.includes("certified"))
+  if (
+    c.includes("refurb") ||
+    c.includes("renewed") ||
+    c.includes("reconditioned") ||
+    c.includes("certified")
+  )
     return "https://schema.org/RefurbishedCondition";
   if (c.includes("open") && c.includes("box")) return "https://schema.org/UsedCondition";
-  if (c.includes("used") || c.includes("pre-owned") || c.includes("preowned")) return "https://schema.org/UsedCondition";
+  if (c.includes("used") || c.includes("pre-owned") || c.includes("preowned"))
+    return "https://schema.org/UsedCondition";
   return "https://schema.org/NewCondition";
 }
 
@@ -121,6 +142,24 @@ function normalizeAvailabilityToSchemaUrl(offer) {
 function normalizePrice(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * ✅ Remove keys undefined/null (limpeza forte pro JSON-LD)
+ */
+function stripNil(obj) {
+  if (!obj || typeof obj !== "object") return obj;
+  Object.keys(obj).forEach((k) => {
+    if (obj[k] === undefined || obj[k] === null || obj[k] === "") delete obj[k];
+  });
+  return obj;
+}
+
+/**
+ * ✅ Price validity conservadora (evita “mentir” e padroniza)
+ */
+function priceValidUntilISO(days = 7) {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 /**
@@ -199,7 +238,7 @@ export async function generateMetadata({ params, searchParams }) {
   const productName = safeText(product.name, 140) || "Product";
   const title = `${productName} - Compare Prices in USA | PRICELAB`;
   const description = `Compare prices for ${productName} by ${cleanBrand} in the United States.${
-    activeOffer ? ` Best available offer: $${currentPrice}.` : " Check availability across top US retailers."
+    activeOffer && currentPrice > 0 ? ` Best available offer: $${currentPrice}.` : " Check availability across top US retailers."
   } Track price history and store availability in ${cleanCategory}.`;
 
   const imageUrl = product.image || (referenceListing ? referenceListing.image : null);
@@ -266,6 +305,8 @@ export async function generateMetadata({ params, searchParams }) {
  * - Audience US + inLanguage en-US
  * - gtin12/gtin13/gtin14 ONLY if valid (check digit)
  * - review/aggregateRating só se existir (sem forçar defaults fake)
+ * - Offer.priceValidUntil (conservador)
+ * - Strong undefined/null stripping
  */
 export default async function Page({ params, searchParams }) {
   const p = await readParams(params);
@@ -298,7 +339,8 @@ export default async function Page({ params, searchParams }) {
   const canonical = `https://www.pricelab.tech/product/${officialSlug}`;
 
   // --- LÓGICA DE DADOS SEPARADA (Referência vs Ativas) ---
-  const referenceListing = (product.listings || []).find((l) => l.image && l.rawDetails) || (product.listings || [])[0];
+  const referenceListing =
+    (product.listings || []).find((l) => l.image && l.rawDetails) || (product.listings || [])[0];
 
   // Apenas ofertas ativas e com estoque
   const activeListings = (product.listings || []).filter((l) => !l.isExpired && l.onlineAvailability);
@@ -346,12 +388,20 @@ export default async function Page({ params, searchParams }) {
   else if (diffPercent > 5) priceStatus = "expensive";
 
   // --- LÓGICA DE PRIORIZAÇÃO DE DADOS TÉCNICOS (BESTBUY > EBAY) ---
-  const bestBuyListing = (product.listings || []).find((l) => String(l.store || "").toLowerCase().includes("best"));
-  const ebayListing = (product.listings || []).find((l) => String(l.store || "").toLowerCase().includes("ebay"));
+  const bestBuyListing = (product.listings || []).find((l) =>
+    String(l.store || "").toLowerCase().includes("best"),
+  );
+  const ebayListing = (product.listings || []).find((l) =>
+    String(l.store || "").toLowerCase().includes("ebay"),
+  );
 
   // Prioridade: Dados do Produto Master > BestBuy > eBay > Listing de Referência
   const prioritizedSpecs =
-    product.rawDetails || bestBuyListing?.rawDetails || ebayListing?.rawDetails || referenceListing?.rawDetails || {};
+    product.rawDetails ||
+    bestBuyListing?.rawDetails ||
+    ebayListing?.rawDetails ||
+    referenceListing?.rawDetails ||
+    {};
 
   // 2. MONTAGEM DO OBJETO FINAL (SERIALIZAÇÃO SEGURA)
   const fullProductData = {
@@ -396,7 +446,10 @@ export default async function Page({ params, searchParams }) {
 
     // compat UI
     salePrice: currentPrice,
-    regularPrice: selectedOffer && selectedOffer.regularPrice ? normalizePrice(selectedOffer.regularPrice) : currentPrice,
+    regularPrice:
+      selectedOffer && selectedOffer.regularPrice
+        ? normalizePrice(selectedOffer.regularPrice)
+        : currentPrice,
   };
 
   const finalProductData = JSON.parse(JSON.stringify(fullProductData));
@@ -413,7 +466,7 @@ export default async function Page({ params, searchParams }) {
   ].filter(Boolean);
   const uniqueImages = [...new Set(imageCandidates)].slice(0, 6);
 
-  // UPC/GTIN safe (prefer Product.upc, fallback mpn)
+  // ✅ UPC/GTIN safe (prefer Product.upc, fallback mpn) — sempre valida checksum
   const rawUpc = finalProductData.upc || finalProductData.mpn || null;
   const gtin12 = safeGtin12(rawUpc);
   const gtin13 = !gtin12 ? safeGtin13(rawUpc) : null;
@@ -421,37 +474,52 @@ export default async function Page({ params, searchParams }) {
 
   // Offers for JSON-LD: use active offers list
   const offersArr = Array.isArray(finalProductData.offers) ? finalProductData.offers : [];
-  const offerPrices = offersArr.map((o) => normalizePrice(o.currentPrice)).filter((n) => Number.isFinite(n) && n > 0);
+
+  // ✅ preços válidos (não-zero) para low/high
+  const offerPrices = offersArr
+    .map((o) => normalizePrice(o.currentPrice))
+    .filter((n) => Number.isFinite(n) && n > 0);
 
   const lowPrice = offerPrices.length ? Math.min(...offerPrices) : normalizePrice(finalProductData.salePrice);
   const highPrice = offerPrices.length ? Math.max(...offerPrices) : normalizePrice(finalProductData.salePrice);
 
-  const offersJsonLd = offersArr.map((off, index) => {
-    const offerUrl = off.affiliateUrl || `https://www.pricelab.tech/product/${finalProductData.slug}#offer-${index + 1}`;
-    const sellerName = safeText(off.storeName, 60) || "Retailer";
+  const offersJsonLd = offersArr
+    .map((off, index) => {
+      const offerUrl =
+        off.affiliateUrl ||
+        `https://www.pricelab.tech/product/${finalProductData.slug}#offer-${index + 1}`;
 
-    const o = {
-      "@type": "Offer",
-      url: offerUrl,
-      price: normalizePrice(off.currentPrice),
-      priceCurrency: "USD",
-      availability: normalizeAvailabilityToSchemaUrl(off),
-      itemCondition: normalizeConditionToSchemaUrl(off.condition),
-      seller: {
-        "@type": "Organization",
-        name: sellerName,
-      },
-    };
+      const sellerName = safeText(off.storeName, 60) || "Retailer";
+      const price = normalizePrice(off.currentPrice);
 
-    Object.keys(o).forEach((k) => (o[k] == null ? delete o[k] : null));
-    return o;
-  });
+      // ✅ Se for out of stock ou price inválido, não manda price=0 (melhor pro Google)
+      const availability = normalizeAvailabilityToSchemaUrl(off);
+      const isInStock = availability === "https://schema.org/InStock";
+      const hasValidPrice = Number.isFinite(price) && price > 0;
+
+      const o = {
+        "@type": "Offer",
+        url: offerUrl,
+        priceCurrency: "USD",
+        availability,
+        itemCondition: normalizeConditionToSchemaUrl(off.condition),
+        priceValidUntil: priceValidUntilISO(7),
+        seller: {
+          "@type": "Organization",
+          name: sellerName,
+        },
+        ...(isInStock && hasValidPrice ? { price } : {}),
+      };
+
+      return stripNil(o);
+    })
+    // ✅ remove offers totalmente “vazias” (defensivo)
+    .filter((o) => o && o.url && o.availability);
 
   // ✅ aggregateRating: 100% dinâmico (sem fallback fake)
   const avg = finalProductData.customerReviewAverage != null ? Number(finalProductData.customerReviewAverage) : null;
   const cnt = finalProductData.customerReviewCount != null ? Number(finalProductData.customerReviewCount) : null;
-  const hasValidAggregate =
-    Number.isFinite(avg) && avg > 0 && Number.isFinite(cnt) && cnt > 0;
+  const hasValidAggregate = Number.isFinite(avg) && avg > 0 && Number.isFinite(cnt) && cnt > 0;
 
   // ✅ optional review: only if expertReview exists
   const hasExpertReview =
@@ -469,7 +537,9 @@ export default async function Page({ params, searchParams }) {
     url: canonical,
     image: uniqueImages.length ? uniqueImages : undefined,
     description: `Compare prices for ${productName} by ${brandName} in the United States.${
-      offersArr.length ? ` Best available offer from $${lowPrice}.` : " Check availability across top US retailers."
+      offersArr.length && lowPrice > 0
+        ? ` Best available offer from $${lowPrice}.`
+        : " Check availability across top US retailers."
     } Track price history and store availability in ${categoryName}.`,
     sku: finalProductData.sku || String(finalProductData.id),
     mpn: finalProductData.upc || finalProductData.sku || undefined,
@@ -496,10 +566,9 @@ export default async function Page({ params, searchParams }) {
 
     offers: {
       "@type": "AggregateOffer",
-      offerCount: offersArr.length,
-      lowPrice,
-      highPrice,
+      offerCount: offersJsonLd.length,
       priceCurrency: "USD",
+      ...(offerPrices.length ? { lowPrice, highPrice } : {}),
       offers: offersJsonLd,
     },
 
@@ -541,10 +610,8 @@ export default async function Page({ params, searchParams }) {
   };
 
   // Clean undefined
-  Object.keys(productJsonLd).forEach((k) => productJsonLd[k] === undefined && delete productJsonLd[k]);
-  if (productJsonLd.offers) {
-    Object.keys(productJsonLd.offers).forEach((k) => productJsonLd.offers[k] === undefined && delete productJsonLd.offers[k]);
-  }
+  stripNil(productJsonLd);
+  if (productJsonLd.offers) stripNil(productJsonLd.offers);
 
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
@@ -568,7 +635,9 @@ export default async function Page({ params, searchParams }) {
               "@type": "ListItem",
               position: 3,
               name: safeText(finalProductData.internalCategory, 80) || "Category",
-              item: `https://www.pricelab.tech/category/${encodeURIComponent(finalProductData.internalCategory)}`,
+              item: `https://www.pricelab.tech/category/${encodeURIComponent(
+                safeText(finalProductData.internalCategory, 200),
+              )}`,
             },
             {
               "@type": "ListItem",
@@ -590,8 +659,14 @@ export default async function Page({ params, searchParams }) {
 
   return (
     <main id="main-content" className="min-h-screen">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
       <ProductPageClient initialProduct={finalProductData} />
     </main>
   );

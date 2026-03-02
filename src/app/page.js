@@ -78,11 +78,23 @@ function safeGtin14(gtin) {
 function normalizeConditionToSchemaUrl(cond) {
   const c = (cond ?? "").toString().trim().toLowerCase();
   if (!c) return "https://schema.org/NewCondition";
-  if (c === "new" || c.includes("brand new")) return "https://schema.org/NewCondition";
-  if (c.includes("refurb") || c.includes("renewed") || c.includes("reconditioned") || c.includes("certified"))
+  if (c === "new" || c.includes("brand new"))
+    return "https://schema.org/NewCondition";
+  if (
+    c.includes("refurb") ||
+    c.includes("renewed") ||
+    c.includes("reconditioned") ||
+    c.includes("certified")
+  )
     return "https://schema.org/RefurbishedCondition";
-  if (c.includes("open") && c.includes("box")) return "https://schema.org/UsedCondition";
-  if (c.includes("used") || c.includes("pre-owned") || c.includes("preowned")) return "https://schema.org/UsedCondition";
+  if (c.includes("open") && c.includes("box"))
+    return "https://schema.org/UsedCondition";
+  if (
+    c.includes("used") ||
+    c.includes("pre-owned") ||
+    c.includes("preowned")
+  )
+    return "https://schema.org/UsedCondition";
   return "https://schema.org/NewCondition";
 }
 
@@ -342,7 +354,9 @@ export default async function Page() {
         const firstWord = brandRaw.trim().split(/\s+/)[0];
         const cleanBrand = firstWord.replace(/[^a-zA-Z0-9]/g, "");
 
-        const diff = ((Number(p.sale_price) - Number(p.avg_price)) / Number(p.avg_price)) * 100;
+        const diff =
+          ((Number(p.sale_price) - Number(p.avg_price)) / Number(p.avg_price)) *
+          100;
 
         return {
           id: p.id.toString(),
@@ -361,11 +375,18 @@ export default async function Page() {
           upc: p.upc,
           url: p.url,
           affiliateUrl: p.affiliate_url,
-          priceStatus: diff <= -5 ? "Great Deal" : diff < 0 ? "Good Price" : "Fair Price",
-          internalCategory: p.internal_category ? p.internal_category.replace(/-/g, " ") : "Electronics",
+          priceStatus:
+            diff <= -5 ? "Great Deal" : diff < 0 ? "Good Price" : "Fair Price",
+          internalCategory: p.internal_category
+            ? p.internal_category.replace(/-/g, " ")
+            : "Electronics",
           discountLabel:
             p.regular_price > p.sale_price
-              ? `${Math.round(((Number(p.regular_price) - Number(p.sale_price)) / Number(p.regular_price)) * 100)}% OFF`
+              ? `${Math.round(
+                  ((Number(p.regular_price) - Number(p.sale_price)) /
+                    Number(p.regular_price)) *
+                    100,
+                )}% OFF`
               : null,
         };
       });
@@ -389,11 +410,11 @@ export default async function Page() {
   /**
    * ESTRUTURAÇÃO DOS DADOS INICIAIS PARA O CLIENT-SIDE
    */
-const initialData = {
-  smartphones: smartphonesData?.items || [],
-  tvs: tvsData?.items || [],
-  laptops: gamingData?.items || [],
-};
+  const initialData = {
+    smartphones: smartphonesData?.items || [],
+    tvs: tvsData?.items || [],
+    laptops: gamingData?.items || [],
+  };
 
   /**
    * ---------------- SEO / JSON-LD (HOME) ----------------
@@ -411,21 +432,26 @@ const initialData = {
   const homeUrl = "https://pricelab.tech/";
   const nowIso = new Date().toISOString();
 
+  // ✅ FIX: você não tem initialData.kitchen; mantém só o que existe (sem inventar)
   const featured = [
     ...(initialData.smartphones || []).slice(0, 4),
     ...(initialData.tvs || []).slice(0, 4),
-    ...(initialData.kitchen || []).slice(0, 4),
+    ...(initialData.laptops || []).slice(0, 4),
   ].slice(0, 12);
 
   const featuredItemList = featured.map((p, idx) => {
-    const productUrl = `https://pricelab.tech/product/${p.slug}`;
+    const productUrl = `https://pricelab.tech/product/${encodeURIComponent(p.slug)}`;
     const brandName = safeBrandName(p.brand) || "Top Brands";
 
-    const gtin12 = safeGtin12(p.upc);
-    const gtin13 = !gtin12 ? safeGtin13(p.upc) : null;
-    const gtin14 = !gtin12 && !gtin13 ? safeGtin14(p.upc) : null;
+    // ✅ UPC/GTIN: só inclui se checksum válido (12/13/14)
+    const rawUpc = p.upc || null;
+    const gtin12 = safeGtin12(rawUpc);
+    const gtin13 = !gtin12 ? safeGtin13(rawUpc) : null;
+    const gtin14 = !gtin12 && !gtin13 ? safeGtin14(rawUpc) : null;
 
-    const offerAvailability = normalizeAvailabilityToSchemaUrl(Boolean(p.onlineAvailability) && !Boolean(p.isExpired));
+    const offerAvailability = normalizeAvailabilityToSchemaUrl(
+      Boolean(p.onlineAvailability) && !Boolean(p.isExpired),
+    );
 
     const offer = {
       "@type": "Offer",
@@ -457,7 +483,9 @@ const initialData = {
 
     // clean undefined
     Object.keys(offer).forEach((k) => offer[k] === undefined && delete offer[k]);
-    Object.keys(productJsonLd).forEach((k) => productJsonLd[k] === undefined && delete productJsonLd[k]);
+    Object.keys(productJsonLd).forEach(
+      (k) => productJsonLd[k] === undefined && delete productJsonLd[k],
+    );
 
     return {
       "@type": "ListItem",
@@ -518,7 +546,9 @@ const initialData = {
     },
   };
 
-  Object.keys(webpageJsonLd).forEach((k) => webpageJsonLd[k] === undefined && delete webpageJsonLd[k]);
+  Object.keys(webpageJsonLd).forEach(
+    (k) => webpageJsonLd[k] === undefined && delete webpageJsonLd[k],
+  );
 
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
@@ -549,10 +579,22 @@ const initialData = {
    */
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(webpageJsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(featuredDealsJsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webpageJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(featuredDealsJsonLd) }}
+      />
       <HomeClient initialData={initialData} />
     </>
   );
