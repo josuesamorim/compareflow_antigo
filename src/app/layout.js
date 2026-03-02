@@ -48,7 +48,7 @@ export const metadata = {
     type: "website",
     images: [
       {
-        url: "/og-image.png",
+        url: "/capa-pricelab.png",
         width: 1200,
         height: 630,
         alt: "PRICELAB | Best Deals in USA",
@@ -60,12 +60,20 @@ export const metadata = {
     title: "PRICELAB | Best Deals in USA",
     description:
       "Monitor price drops across major retailers like Best Buy and eBay in real-time. Find the lowest prices on smartphones, TVs, and tech accessories.",
-    images: ["/og-image.png"],
+    images: ["/capa-pricelab.png"],
   },
   verification: {
     google: "5B6jzxA3j90GUEuQro0cKSG0z3pQkuCnC210L7v-a2I",
   },
 };
+
+import "./globals.css";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
+import { GoogleTagManager } from "@next/third-parties/google";
+
 
 /**
  * ROOT LAYOUT V25
@@ -74,13 +82,15 @@ export const metadata = {
 export default function RootLayout({ children }) {
   // Puxa o ID da variável de ambiente - Seguro para produção
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
+  
+  // 🔥 Cria a verificação de ambiente
+  const isProduction = process.env.NODE_ENV === "production";
 
   return (
     <html lang="en" className="h-full">
-      {/* GTM precisa ficar o mais alto possível */}
-      {gtmId && <GoogleTagManager gtmId={gtmId} />}
+      {/* O GTM só carrega se tiver o ID E estiver em produção */}
+      {isProduction && gtmId && <GoogleTagManager gtmId={gtmId} />}
 
-      {/* ✅ <head> manual voltando apenas para os preconnects de performance */}
       <head>
         <link rel="preconnect" href="https://pisces.bbystatic.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://i.ebayimg.com" crossOrigin="anonymous" />
@@ -98,9 +108,9 @@ export default function RootLayout({ children }) {
         {/* Footer */}
         <Footer />
 
-        {/* Analytics da Vercel no body */}
-        <SpeedInsights />
-        <Analytics />
+        {/* 🔥 Analytics e SpeedInsights só carregam em produção */}
+        {isProduction && <SpeedInsights />}
+        {isProduction && <Analytics />}
       </body>
     </html>
   );
