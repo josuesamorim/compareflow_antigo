@@ -73,17 +73,16 @@ export const metadata = {
  * ROOT LAYOUT V25
  * Estrutura mestre da aplicação. Gerencia Tags, Analytics e o esqueleto visual.
  */
+
 export default function RootLayout({ children }) {
-  // Puxa o ID da variável de ambiente - Seguro para produção
+  // Puxa o ID da variável de ambiente. 
+  // DICA: Não coloque esse ID no seu .env.local, deixe só na Vercel. Assim ele não roda no seu PC.
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
-  
-  // 🔥 Cria a verificação de ambiente
-  const isProduction = process.env.NODE_ENV === "production";
 
   return (
     <html lang="en" className="h-full">
-      {/* O GTM só carrega se tiver o ID E estiver em produção */}
-      {isProduction && gtmId && <GoogleTagManager gtmId={gtmId} />}
+      {/* O GTM só carrega se a variável existir */}
+      {gtmId && <GoogleTagManager gtmId={gtmId} />}
 
       <head>
         <link rel="preconnect" href="https://pisces.bbystatic.com" crossOrigin="anonymous" />
@@ -102,9 +101,9 @@ export default function RootLayout({ children }) {
         {/* Footer */}
         <Footer />
 
-        {/* 🔥 Analytics e SpeedInsights só carregam em produção */}
-        {isProduction && <SpeedInsights />}
-        {isProduction && <Analytics />}
+        {/* Analytics e SpeedInsights nativos da Vercel (já ignoram o localhost automaticamente) */}
+        <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   );
