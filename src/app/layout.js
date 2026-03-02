@@ -75,13 +75,15 @@ export const metadata = {
  */
 
 export default function RootLayout({ children }) {
-  // Puxa o ID da variável de ambiente. 
-  // DICA: Não coloque esse ID no seu .env.local, deixe só na Vercel. Assim ele não roda no seu PC.
-  const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
+  // ✅ Só carrega analytics em PRODUÇÃO (Vercel / build prod)
+  const isProd = process.env.NODE_ENV === "production";
+
+  // ✅ Só lê GTM se estiver em prod (e se existir)
+  const gtmId = isProd ? process.env.NEXT_PUBLIC_GTM_ID : null;
 
   return (
     <html lang="en" className="h-full">
-      {/* O GTM só carrega se a variável existir */}
+      {/* ✅ GTM só carrega em produção e se tiver ID */}
       {gtmId && <GoogleTagManager gtmId={gtmId} />}
 
       <head>
@@ -94,16 +96,18 @@ export default function RootLayout({ children }) {
         <Header />
 
         {/* MAIN */}
-        <main className="flex-1 w-full relative min-h-[100dvh] flex flex-col">
-          {children}
-        </main>
+        <main className="flex-1 w-full relative min-h-[100dvh] flex flex-col">{children}</main>
 
         {/* Footer */}
         <Footer />
 
-        {/* Analytics e SpeedInsights nativos da Vercel (já ignoram o localhost automaticamente) */}
-        <SpeedInsights />
-        <Analytics />
+        {/* ✅ Vercel Analytics só em produção */}
+        {isProd && (
+          <>
+            <SpeedInsights />
+            <Analytics />
+          </>
+        )}
       </body>
     </html>
   );
