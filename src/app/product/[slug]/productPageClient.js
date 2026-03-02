@@ -81,8 +81,13 @@ function ConditionBadge({ condition }) {
   );
 }
 
-// --- SUB-COMPONENTE DE IMAGEM COM FALLBACK EM CASCATA (NOVO) ---
-// --- SUB-COMPONENTE DE IMAGEM COM FALLBACK EM CASCATA (FIX BESTBUY) ---
+/**
+ * Heurística "BestBuy-like" (premium + consistente):
+ * - ✅ Sem matte/gradiente: fundo branco puro (como você pediu)
+ * - ✅ Nunca corta: object-contain SEM scale
+ * - ✅ Ocupa o espaço do bloco no desktop (sem limitar em square)
+ * - ✅ Ajuste automático para imagens MUITO horizontais/verticais (ex: caneta) via padding dinâmico
+ */
 function ProductHeroImage({ images = [], alt, isMobile = false }) {
   const fallbackPlaceholder = `/no-image.png`;
   const imagesKey = JSON.stringify(images);
@@ -91,10 +96,13 @@ function ProductHeroImage({ images = [], alt, isMobile = false }) {
   const [loaded, setLoaded] = useState(false);
   const [useFallback, setUseFallback] = useState(images.length === 0);
 
+  const [ratioMode, setRatioMode] = useState("unknown"); // normal | wide | tall | extreme
+
   useEffect(() => {
     setCurrentIndex(0);
     setLoaded(false);
     setUseFallback(images.length === 0);
+    setRatioMode("unknown");
   }, [imagesKey]);
 
   const currentSrc = useFallback
@@ -103,37 +111,73 @@ function ProductHeroImage({ images = [], alt, isMobile = false }) {
 
   const handleError = () => {
     if (currentIndex < images.length - 1) {
-      setCurrentIndex((prevIndex) => prevIndex + 1);
+      setCurrentIndex((prev) => prev + 1);
+      setLoaded(false);
+      setRatioMode("unknown");
     } else {
       setUseFallback(true);
+      setLoaded(false);
+      setRatioMode("unknown");
     }
   };
 
-  // ✅ Heurística simples: BestBuy costuma mandar PNG quadrado com padding/transparência
-  const lowerSrc = String(currentSrc || "").toLowerCase();
-  const isBestBuyAsset = lowerSrc.includes("bbystatic.com") || lowerSrc.includes("bestbuy");
-  const isPng = lowerSrc.endsWith(".png") || lowerSrc.includes(".png?");
-  const shouldBoost = isBestBuyAsset && isPng && !useFallback;
+  const applyRatioHeuristics = (naturalWidth, naturalHeight) => {
+    const w = Number(naturalWidth || 0);
+    const h = Number(naturalHeight || 0);
+    if (!w || !h) return;
 
-  /**
-   * ✅ FIX PRINCIPAL:
-   * - Container com tamanho previsível (evita micro-imagem).
-   * - <Image fill> + object-contain usando 100% da caixa (sem w-auto).
-   * - Boost leve em PNG da BestBuy para compensar padding.
-   */
+    const r = w / h;
+
+    const isWide = r >= 1.55;
+    const isVeryWide = r >= 2.3;
+    const isTall = r <= 0.7;
+    const isVeryTall = r <= 0.5;
+
+    let mode = "normal";
+    if (isVeryWide || isVeryTall) mode = "extreme";
+    else if (isWide) mode = "wide";
+    else if (isTall) mode = "tall";
+
+    setRatioMode(mode);
+  };
+
+  const paddingClass = useMemo(() => {
+    /**
+     * ✅ Para NÃO cortar em hipótese nenhuma:
+     * - Sem scale/zoom
+     * - “Aumentar” produto = reduzir padding
+     */
+    if (ratioMode === "wide") return "p-1 md:p-3";
+    if (ratioMode === "tall") return "p-0.5 md:p-2";
+    if (ratioMode === "extreme") return "p-0 md:p-1";
+    return "p-3 md:p-6";
+  }, [ratioMode]);
+
+  // ✅ sizes de desktop agora acompanha o bloco, não fixa 520px
+  const sizesAttr = isMobile ? "100vw" : "(max-width: 1024px) 45vw, 33vw";
+
+  // ✅ Container: mobile quadrado; desktop ocupa altura total do bloco (sem cortar)
+  const containerClass = useMemo(() => {
+    return [
+      "relative w-full overflow-hidden rounded-2xl md:rounded-[2rem]",
+      "bg-white",
+      "ring-1 ring-slate-200/70",
+      isMobile ? "aspect-square" : "h-full min-h-[360px]",
+    ].join(" ");
+  }, [isMobile]);
+
   return (
-    <div
-      className={[
-        "relative w-full overflow-hidden rounded-2xl bg-white",
-        // Mobile: ocupa bem a área do header
-        isMobile ? "h-full" : "h-full",
-        // Desktop/Mobile: formato estável
-        "aspect-square",
-      ].join(" ")}
-    >
+    <div className={containerClass}>
       {!loaded && (
-        <div className="absolute inset-0 z-0 flex items-center justify-center bg-slate-200 animate-pulse">
-          <svg className="w-12 h-12 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="absolute inset-0 z-0 flex items-center justify-center bg-white">
+          <div className="absolute inset-0 bg-slate-100 animate-pulse" />
+          <svg
+            className="relative w-12 h-12 text-slate-300"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            aria-hidden="true"
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -150,21 +194,22 @@ function ProductHeroImage({ images = [], alt, isMobile = false }) {
         alt={alt || "Product Image"}
         fill
         priority={true}
-        onLoad={() => setLoaded(true)}
+        sizes={sizesAttr}
         onError={handleError}
-        sizes={isMobile ? "100vw" : "(max-width: 1024px) 40vw, 520px"}
+        onLoadingComplete={(img) => {
+          setLoaded(true);
+          applyRatioHeuristics(img?.naturalWidth, img?.naturalHeight);
+        }}
         className={[
           "z-10",
-          "object-contain",
-          // ✅ usa a caixa toda (não depende do tamanho intrínseco)
+          "object-contain", // ✅ nunca corta
           "w-full h-full",
-          // um respiro pra não encostar nas bordas
-          "p-4 md:p-6",
-          // transição suave
-          "transition-all duration-700 ease-in-out",
-          loaded ? "opacity-100 scale-100 blur-0" : "opacity-0 scale-95 blur-sm",
-          // ✅ boost leve pra BestBuy PNG (padding)
-          shouldBoost ? "md:scale-[1.12] scale-[1.06]" : "",
+          paddingClass, // ✅ aumenta sem zoom
+          "transition-opacity duration-500 ease-out",
+          loaded ? "opacity-100" : "opacity-0",
+          // ✅ sombra suave pra separar produto branco de fundo branco (sem matte)
+          // "drop-shadow-[0_14px_20px_rgba(0,0,0,0.10)]",
+          "select-none",
         ].join(" ")}
       />
     </div>
@@ -251,8 +296,12 @@ function ProductContent({ initialProduct }) {
   if (!product || product.error) {
     return (
       <div className="p-20 text-center flex flex-col items-center justify-center min-h-[60vh]">
-        <h2 className="text-4xl font-black text-red-500 uppercase italic">404 - Product Not Found</h2>
-        <p className="text-slate-500 mt-4 font-bold uppercase tracking-widest">Slug: {slug}</p>
+        <h2 className="text-4xl font-black text-red-500 uppercase italic">
+          404 - Product Not Found
+        </h2>
+        <p className="text-slate-500 mt-4 font-bold uppercase tracking-widest">
+          Slug: {slug}
+        </p>
         <a
           href="/"
           className="mt-8 bg-black text-white px-8 py-3 rounded-full font-black uppercase text-xs transition-transform active:scale-95"
@@ -270,7 +319,9 @@ function ProductContent({ initialProduct }) {
   // - conditionQS: vem do link/click no card (fonte forte no client)
   // - product.selectedCondition: vem do server (fallback)
   // - product.selectedOfferId: vem do server (mais forte ainda)
-  const requestedConditionKey = normalizeConditionKey(conditionQS || product.selectedCondition || "");
+  const requestedConditionKey = normalizeConditionKey(
+    conditionQS || product.selectedCondition || "",
+  );
   const selectedOfferId = product.selectedOfferId || null;
 
   const bestOffer = useMemo(() => {
@@ -327,13 +378,20 @@ function ProductContent({ initialProduct }) {
   );
 
   const handleGoToStore = () => {
-    if (typeof window !== "undefined" && typeof window.dataLayer !== "undefined") {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.dataLayer !== "undefined"
+    ) {
       const eventData = {
         event: "click_go_to_store",
         product_name: product?.name || "Unknown",
         store_name: bestOffer?.storeName || "Retailer",
         product_price: lowestPrice,
-        product_condition: bestOffer?.condition || product?.selectedCondition || conditionQS || "unknown",
+        product_condition:
+          bestOffer?.condition ||
+          product?.selectedCondition ||
+          conditionQS ||
+          "unknown",
       };
       window.dataLayer.push(eventData);
     }
@@ -361,10 +419,18 @@ function ProductContent({ initialProduct }) {
     <div className="min-h-screen bg-slate-50">
       {/* MOBILE UI */}
       <div className="md:hidden pb-10 text-left">
-        <section className="bg-white border-b border-slate-200 overflow-hidden" aria-label="Product Main Information">
-          <div className="p-8 flex justify-center border-b border-slate-100 relative bg-white h-[240px]">
+        <section
+          className="bg-white border-b border-slate-200 overflow-hidden"
+          aria-label="Product Main Information"
+        >
+          {/* Ajuste: altura maior + imagem ocupando melhor */}
+          <div className="p-6 flex justify-center border-b border-slate-100 relative bg-white h-[300px]">
             <ConditionBadge condition={bestOffer?.condition} />
-            <ProductHeroImage images={uniqueImagesList} alt={product.name} isMobile={true} />
+            <ProductHeroImage
+              images={uniqueImagesList}
+              alt={product.name}
+              isMobile={true}
+            />
           </div>
 
           <div className="p-6">
@@ -425,7 +491,11 @@ function ProductContent({ initialProduct }) {
         <div className="px-4 space-y-12">
           <OfferComparisonList offers={offers} productName={product.name} />
 
-          <section id="history-mobile" className="min-h-[300px]" aria-label="Price History">
+          <section
+            id="history-mobile"
+            className="min-h-[300px]"
+            aria-label="Price History"
+          >
             <h2 className="sr-only">Historical Pricing</h2>
             {mounted ? (
               <StoreComparisonChart history={product.priceHistory || []} />
@@ -437,11 +507,14 @@ function ProductContent({ initialProduct }) {
           {/* ✅ SWAP MOBILE: ExpertReviewAI antes de TechnicalSpecs */}
           {hasValidAIReview && (
             <div id="analysis-mobile">
-              <ExpertReviewAI review={product.expertReview} score={product.expertScore} />
-            </div>
+  <ExpertReviewAI review={product.expertReview} score={product.expertScore} />
+</div>
           )}
 
-          <section className="bg-white p-6 rounded-2xl border border-slate-100" aria-label="Specifications">
+          <section
+            className="bg-white p-6 rounded-12xl border border-slate-100"
+            aria-label="Specifications"
+          >
             <h2 className="text-[10px] font-black uppercase mb-6 text-slate-400 tracking-widest">
               Specifications
             </h2>
@@ -457,10 +530,17 @@ function ProductContent({ initialProduct }) {
             className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden mb-10 min-h-[380px]"
             aria-label="Product Summary"
           >
-            <div className="grid grid-cols-1 lg:grid-cols-12 items-center min-h-[380px]">
-              <div className="lg:col-span-4 bg-slate-50/50 p-10 flex justify-center border-r border-slate-100 h-full relative min-h-[380px]">
+            <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch min-h-[380px]">
+              {/* ✅ Imagem PC agora ocupa o bloco todo (sem max width / sem square) */}
+              <div className="lg:col-span-4 bg-white p-10 flex items-stretch border-r border-slate-100 h-full relative min-h-[380px]">
                 <ConditionBadge condition={bestOffer?.condition} />
-                <ProductHeroImage images={uniqueImagesList} alt={product.name} />
+                <div className="w-full h-full">
+                  <ProductHeroImage
+                    images={uniqueImagesList}
+                    alt={product.name}
+                    isMobile={false}
+                  />
+                </div>
               </div>
 
               <div className="lg:col-span-8 p-12">
@@ -528,7 +608,8 @@ function ProductContent({ initialProduct }) {
           <div className="space-y-20 pb-24 max-w-5xl mx-auto">
             <section id="offers-pc" className="scroll-mt-36">
               <h2 className="text-xs font-black uppercase mb-8 text-slate-400 tracking-[0.3em] flex items-center gap-4">
-                Best Available Offers <span className="h-[1px] flex-1 bg-slate-200"></span>
+                Best Available Offers{" "}
+                <span className="h-[1px] flex-1 bg-slate-200"></span>
               </h2>
               <OfferComparisonList offers={offers} productName={product.name} />
             </section>
@@ -560,7 +641,10 @@ function ProductContent({ initialProduct }) {
             {/* ✅ SWAP DESKTOP: ExpertReviewAI antes de TechnicalSpecs */}
             {hasValidAIReview && (
               <section id="analysis-pc" className="scroll-mt-36">
-                <ExpertReviewAI review={product.expertReview} score={product.expertScore} />
+                <ExpertReviewAI
+                  review={product.expertReview}
+                  score={product.expertScore}
+                />
               </section>
             )}
 
@@ -572,17 +656,23 @@ function ProductContent({ initialProduct }) {
               <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-sm">
                 <div className="grid grid-cols-3 gap-12 italic font-black uppercase text-center border-b border-slate-100 pb-10 mb-8">
                   <div className="min-w-0">
-                    <p className="text-[10px] text-slate-400 mb-2 tracking-widest">Brand</p>
+                    <p className="text-[10px] text-slate-400 mb-2 tracking-widest">
+                      Brand
+                    </p>
                     <span className="truncate block text-blue-600 text-lg">
                       {cleanText(product.brand)}
                     </span>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[10px] text-slate-400 mb-2 tracking-widest">Model</p>
+                    <p className="text-[10px] text-slate-400 mb-2 tracking-widest">
+                      Model
+                    </p>
                     <span className="truncate block text-lg">{displayModel}</span>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[10px] text-slate-400 mb-2 tracking-widest">Color</p>
+                    <p className="text-[10px] text-slate-400 mb-2 tracking-widest">
+                      Color
+                    </p>
                     <span className="truncate block text-lg">{displayColor}</span>
                   </div>
                 </div>

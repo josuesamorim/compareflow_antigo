@@ -14,8 +14,8 @@ export default function ExpertReviewAI({ review, score }) {
   if (!review || review.error || !finalScore) return null;
 
   return (
-    <section className="mt-8 md:mt-12 mb-16 md:mb-24 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-      <div className="max-w-5xl mx-auto px-4 md:px-0">
+    <section className="mt-8 md:mt-12 mb-10 md:mb-24 animate-in fade-in slide-in-from-bottom-6 duration-1000">
+      <div className="w-full max-w-none mx-0 px-0 md:max-w-5xl md:mx-auto md:px-0">
         
         {/* Header - Identidade PRICELAB */}
         <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
