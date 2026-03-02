@@ -242,13 +242,14 @@ function cleanSemanticName(title, brand) {
 function normalizeCondition(condition) {
   if (!condition) return "NEW";
   const c = condition.toString().toUpperCase();
+  
   if (c.includes("NEW")) return "NEW";
   if (c.includes("REFURB")) return "REFURBISHED";
-  if (c.includes("USED") || c.includes("PRE-OWNED") || c.includes("PREOWNED"))
-    return "REFURBISHED"; // <- mata USED
-  if (c.includes("OPEN BOX") || c.includes("OPEN-BOX") || c.includes("OPENBOX"))
-    return "OPEN_BOX";
-  return "NEW";
+  if (c.includes("PRE-OWNED") || c.includes("PREOWNED")) return "PRE_OWNED";
+  if (c.includes("USED")) return "USED";
+  if (c.includes("OPEN BOX") || c.includes("OPEN-BOX") || c.includes("OPENBOX")) return "OPEN_BOX";
+  
+  return "NEW"; // Fallback seguro
 }
 
 /**

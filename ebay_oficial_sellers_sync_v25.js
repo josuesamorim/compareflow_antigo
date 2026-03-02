@@ -421,12 +421,14 @@ function generateProfessionalSlug(name, technicalId, brand) {
 function normalizeCondition(condition) {
   if (!condition) return "NEW";
   const c = condition.toString().toUpperCase();
+  
   if (c.includes("NEW") || c.includes("1000")) return "NEW";
-  if (c.includes("REFURBISHED") || c.includes("2000") || c.includes("2500"))
-    return "REFURBISHED";
-  if (c.includes("USED") || c.includes("PRE-OWNED") || c.includes("PREOWNED") || c.includes("3000"))
-    return "REFURBISHED"; 
-  return "NEW";
+  if (c.includes("REFURBISHED") || c.includes("2000") || c.includes("2500")) return "REFURBISHED";
+  if (c.includes("PRE-OWNED") || c.includes("PREOWNED")) return "PRE_OWNED";
+  if (c.includes("USED") || c.includes("3000")) return "USED";
+  if (c.includes("OPEN BOX") || c.includes("OPEN-BOX") || c.includes("OPENBOX") || c.includes("1500")) return "OPEN_BOX";
+  
+  return "NEW"; // Fallback seguro
 }
 
 function hasMultipleStorageVariations(title) {
