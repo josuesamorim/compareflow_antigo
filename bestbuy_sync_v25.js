@@ -30,12 +30,12 @@ const MAX_403_RETRIES = 3;   // Máximo de chances antes de desistir
 const PRIORITY_CATEGORIES = [
   { name: "Laptops", id: "abcat0502000" },
   { name: "Video Cards", id: "abcat0507002" },
-  { name: "Processors", id: "abcat0507010" },
-  { name: "Monitors", id: "abcat0509000" },
+  { name: "Headphones", id: "abcat0204000" },
+  { name: "Vacuums", id: "abcat0911000" },
   { name: "Cell Phones", id: "abcat0800000" },
   { name: "Consoles", id: "abcat0700000" },
-  { name: "Memory RAM", id: "abcat0506000" },
-  { name: "Motherboards", id: "abcat0507008" },
+  { name: "Refrigerators", id: "abcat0901000" },
+  { name: "TVs", id: "abcat0101000" },
 ];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
