@@ -44,7 +44,7 @@ jobs:
           EBAY_CERT_ID: ${{ secrets.EBAY_CERT_ID }}
 
       - name: Revalidate Vercel Cache
-        run: node revalidade-next.js
+        run: node revalidate-next.js
         env:
           TZ: "America/Sao_Paulo"
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}

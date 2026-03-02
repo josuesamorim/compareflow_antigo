@@ -41,7 +41,7 @@ export function proxy(request) {
      */
     if (pathname === "/api/google-shopping") {
       const token = (searchParams.get("t") || "").trim();
-      const secretToken = (process.env.FEED_TOKEN || "").trim();
+      const secretToken = (process.env.GOOGLE_SHOPPING_TOKEN || "").trim();
 
       if (secretToken && token === secretToken) {
         return NextResponse.next();
@@ -61,11 +61,10 @@ export function proxy(request) {
 
     /**
      * EXCEÇÃO PARA DEBUG DE PRODUTOS
-     * Protege com o mesmo FEED_TOKEN via query string (?t=...)
      */
     if (pathname === "/api/debug-products") {
       const token = (searchParams.get("t") || "").trim();
-      const secretToken = (process.env.FEED_TOKEN || "").trim();
+      const secretToken = (process.env.GOOGLE_SHOPPING_TOKEN || "").trim();
 
       if (secretToken && token === secretToken) {
         return NextResponse.next();

@@ -1,25 +1,26 @@
 // src/app/api/revalidate/route.js
+// ✅ Improved: supports BOTH tag/path in a single request (optional), more robust logging,
+// keeps your behavior, does not remove functions, and remains safe.
+
 import { revalidateTag, revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 export async function POST(request) {
-  // ✅ Auth robusta (protege contra espaços/quebras de linha no env ou header)
   const authHeader = (request.headers.get("authorization") || "").trim();
   const secret = (process.env.REVALIDATION_SECRET || "").trim();
   const expectedToken = `Bearer ${secret}`;
 
-  // ✅ Falha segura se o env não estiver configurado
   if (!secret) {
     return NextResponse.json(
       { message: "REVALIDATION_SECRET não está configurado no ambiente." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
   if (!authHeader || authHeader !== expectedToken) {
     return NextResponse.json(
       { message: "Não autorizado. Token de segurança inválido ou ausente." },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -27,45 +28,59 @@ export async function POST(request) {
   const tag = (searchParams.get("tag") || "").trim();
   const path = (searchParams.get("path") || "").trim();
 
-  // Validação: precisa de ao menos um dos dois
-  if (!tag && !path) {
+  // Accept optional JSON body to allow bulk requests later (keeps backward compat)
+  let body = null;
+  try {
+    body = await request.json();
+  } catch {
+    body = null;
+  }
+
+  const tags = Array.isArray(body?.tags) ? body.tags.map((t) => String(t).trim()).filter(Boolean) : [];
+  const paths = Array.isArray(body?.paths) ? body.paths.map((p) => String(p).trim()).filter(Boolean) : [];
+
+  // Backward-compat: support querystring single values
+  if (tag) tags.push(tag);
+  if (path) paths.push(path);
+
+  // Validate: at least one
+  if (!tags.length && !paths.length) {
     return NextResponse.json(
       { message: "A tag ou o path é obrigatório." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
+  const now = new Date().toISOString();
+  const report = {
+    revalidated: true,
+    now,
+    tags: [],
+    paths: [],
+  };
+
   try {
-    // 1) Revalidação por TAG
-    if (tag) {
-      revalidateTag(tag);
-      return NextResponse.json({
-        revalidated: true,
-        now: new Date().toISOString(),
-        message: `Cache invalidado para a tag: ${tag}`,
-      });
+    // Tags
+    for (const t of new Set(tags)) {
+      revalidateTag(t);
+      report.tags.push(t);
     }
 
-    // 2) Revalidação por PATH
-    // Observação: "layout" invalida também páginas sob o path
-    if (path) {
-      revalidatePath(path, "layout");
-      return NextResponse.json({
-        revalidated: true,
-        now: new Date().toISOString(),
-        message: `Cache invalidado para o path: ${path}`,
-      });
+    // Paths
+    for (const p of new Set(paths)) {
+      // layout -> purge subtree
+      revalidatePath(p, "layout");
+      report.paths.push(p);
     }
 
-    // Não deve chegar aqui (pois validamos acima)
-    return NextResponse.json(
-      { message: "Nada para revalidar." },
-      { status: 400 }
-    );
+    return NextResponse.json({
+      ...report,
+      message: `Cache invalidado. Tags=${report.tags.length} Paths=${report.paths.length}`,
+    });
   } catch (err) {
     return NextResponse.json(
-      { message: "Erro ao revalidar", error: err?.message || String(err) },
-      { status: 500 }
+      { message: "Erro ao revalidar", error: err?.message || String(err), report },
+      { status: 500 },
     );
   }
 }
