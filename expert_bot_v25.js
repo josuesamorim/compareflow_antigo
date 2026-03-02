@@ -1,3 +1,4 @@
+//expert_bot_25.js
 import { PrismaClient, Prisma } from "@prisma/client";
 import axios from "axios";
 import dotenv from "dotenv";
@@ -86,13 +87,13 @@ async function getNextKey() {
   if (currentKeyIndex === 0) {
     voltasCompletasSemSucesso++;
     console.warn(
-      `\n🔄 Volta completa no carrossel de chaves (${voltasCompletasSemSucesso}/2).`
+      `\n🔄 Volta completa no carrossel de chaves (${voltasCompletasSemSucesso}/2).`,
     );
   }
 
   if (voltasCompletasSemSucesso >= 2) {
     console.error(
-      "🚨 [LIMITE DIÁRIO ATINGIDO] Todas as 10 chaves esgotadas após 2 voltas."
+      "🚨 [LIMITE DIÁRIO ATINGIDO] Todas as 10 chaves esgotadas após 2 voltas.",
     );
     console.log("🏁 Encerrando para poupar minutos do GitHub Actions.");
     await prisma.$disconnect();
@@ -101,13 +102,15 @@ async function getNextKey() {
 
   if (chavesFalhasSeguidas >= API_KEYS.length) {
     console.error(
-      `⚠️ Todas as chaves em RPM. Pausando ${TEMPO_ESPERA_EXAUSTAO_MS / 60000} min...`
+      `⚠️ Todas as chaves em RPM. Pausando ${TEMPO_ESPERA_EXAUSTAO_MS / 60000} min...`,
     );
     await new Promise((r) => setTimeout(r, TEMPO_ESPERA_EXAUSTAO_MS));
     chavesFalhasSeguidas = 0;
   }
 
-  console.log(`🔑 Rotação: Alternando para a Chave API #${currentKeyIndex + 1}...`);
+  console.log(
+    `🔑 Rotação: Alternando para a Chave API #${currentKeyIndex + 1}...`,
+  );
   return API_KEYS[currentKeyIndex];
 }
 
@@ -147,7 +150,9 @@ function sanitizeAiJson(rawText) {
     const lastBrace = rawText.lastIndexOf("}");
 
     if (firstBrace === -1 || lastBrace === -1) {
-      console.error("❌ Falha Crítica: A IA não retornou um objeto JSON válido.");
+      console.error(
+        "❌ Falha Crítica: A IA não retornou um objeto JSON válido.",
+      );
       return null;
     }
 
@@ -175,9 +180,11 @@ async function runExpertBot() {
   let ultimoIdProcessado = null;
   let apiKeyAtiva = getCurrentKey();
 
-  console.log("🚀 Iniciando ExpertBot Enterprise (Lifecycle + Loop Protection)...");
   console.log(
-    `⏱️ Ritmo Alvo: ${REQUISICOES_POR_MINUTO} produto/min | Janela: ${INTERVALO_MS / 1000}s`
+    "🚀 Iniciando ExpertBot Enterprise (Lifecycle + Loop Protection)...",
+  );
+  console.log(
+    `⏱️ Ritmo Alvo: ${REQUISICOES_POR_MINUTO} produto/min | Janela: ${INTERVALO_MS / 1000}s`,
   );
 
   try {
@@ -248,10 +255,7 @@ async function runExpertBot() {
                 url: true,
                 affiliateUrl: true,
               },
-              orderBy: [
-                { salePrice: "asc" },
-                { lastUpdated: "desc" },
-              ],
+              orderBy: [{ salePrice: "asc" }, { lastUpdated: "desc" }],
               take: 1,
             },
           },
@@ -266,7 +270,9 @@ async function runExpertBot() {
       }
 
       if (!product) {
-        console.log("\n🏁 Fila de maturidade total (Prioritária + Global) concluída.");
+        console.log(
+          "\n🏁 Fila de maturidade total (Prioritária + Global) concluída.",
+        );
         break;
       }
 
@@ -316,7 +322,7 @@ async function runExpertBot() {
         tentativasAtuais++;
         if (tentativasAtuais >= MAX_TENTATIVAS_POR_PRODUTO) {
           console.error(
-            `\n⚠️ ID ${product.id} falhou após ${MAX_TENTATIVAS_POR_PRODUTO} tentativas. Movendo para próximo.`
+            `\n⚠️ ID ${product.id} falhou após ${MAX_TENTATIVAS_POR_PRODUTO} tentativas. Movendo para próximo.`,
           );
           await prisma.product.update({
             where: { id: product.id },
@@ -340,7 +346,7 @@ async function runExpertBot() {
       }
 
       console.log(
-        `\n[${processadosHoje + 1}/${LIMITE_DIARIO}] 📡 Auditando: ${product.name} (ID: ${product.id}) | Listing SKU: ${listing.sku} | Store: ${listing.store}`
+        `\n[${processadosHoje + 1}/${LIMITE_DIARIO}] 📡 Auditando: ${product.name} (ID: ${product.id}) | Listing SKU: ${listing.sku} | Store: ${listing.store}`,
       );
 
       try {
@@ -416,15 +422,15 @@ OUTPUT STRUCTURE (JSON):
                 ],
               },
             ],
-            tools: [{ google_search: {} }],
-            generationConfig: { temperature: 0.1 },
-          },
+            tools: [{ googleSearch: {} }],
+            generationConfig: { temperature: 0.1 }
+          }, 
           {
             headers: { "Content-Type": "application/json" },
             httpAgent,
             httpsAgent,
             timeout: 100000,
-          }
+          },
         );
 
         if (response.status === 200) {
@@ -439,7 +445,9 @@ OUTPUT STRUCTURE (JSON):
           candidate?.finishReason === "SAFETY" ||
           candidate?.finishReason === "OTHER"
         ) {
-          console.warn(`🛑 Bloqueado pela Política de Segurança da Google (ID: ${product.id})`);
+          console.warn(
+            `🛑 Bloqueado pela Política de Segurança da Google (ID: ${product.id})`,
+          );
           await prisma.product.update({
             where: { id: product.id },
             data: {
@@ -463,17 +471,17 @@ OUTPUT STRUCTURE (JSON):
 
             if (!validation.success) {
               throw new Error(
-                `Zod Validation: ${JSON.stringify(validation.error.format())}`
+                `Zod Validation: ${JSON.stringify(validation.error.format())}`,
               );
             }
 
             const aiResult = validation.data;
 
             const scoreFinal = Number(
-              Math.min(10, Math.max(0, aiResult.expert_score)).toFixed(1)
+              Math.min(10, Math.max(0, aiResult.expert_score)).toFixed(1),
             );
             const confidenceFinal = Number(
-              Math.min(1, Math.max(0, aiResult.confidence_level)).toFixed(2)
+              Math.min(1, Math.max(0, aiResult.confidence_level)).toFixed(2),
             );
 
             let finalStatus = "VALID";
@@ -505,10 +513,13 @@ OUTPUT STRUCTURE (JSON):
 
             processadosHoje++;
             console.log(
-              `✅ [${finalStatus}] ID: ${product.id} | Score: ${scoreFinal} | Conf: ${confidenceFinal}`
+              `✅ [${finalStatus}] ID: ${product.id} | Score: ${scoreFinal} | Conf: ${confidenceFinal}`,
             );
           } catch (e) {
-            console.error(`❌ Erro de Parsing/Schema no ID ${product.id}:`, e.message);
+            console.error(
+              `❌ Erro de Parsing/Schema no ID ${product.id}:`,
+              e.message,
+            );
             await prisma.product.update({
               where: { id: product.id },
               data: {
@@ -524,10 +535,12 @@ OUTPUT STRUCTURE (JSON):
             processadosHoje++;
           }
         } else {
+          console.error(`\n👀 [DEBUG] Texto cru retornado pelo Gemini no ID ${product.id}:\n${rawText}\n`);
           throw new Error("Resposta da IA não contém um objeto JSON válido.");
         }
       } catch (error) {
         const status = error?.response?.status;
+        const googleErrorDetails = error?.response?.data?.error?.message || ""; // Pega o erro real do Google
         const errorMsg = error?.message;
 
         if (status === 429) {
@@ -535,14 +548,29 @@ OUTPUT STRUCTURE (JSON):
           apiKeyAtiva = await getNextKey();
           await new Promise((r) => setTimeout(r, 5000));
         } else if (status === 400) {
-          console.error(`🚨 Erro 400 (Bad Request) no ID ${product.id}. Verificando payload...`);
-          await prisma.product.update({
-            where: { id: product.id },
-            data: { expertStatus: "ERROR", expertLastChecked: agora },
-          });
-          processadosHoje++;
+          console.error(
+            `🚨 Erro 400 no ID ${product.id}. Detalhe da API: ${googleErrorDetails}`,
+          );
+
+          // ✅ PROTEÇÃO: Se a chave for inválida, rotaciona a chave em vez de quebrar os produtos!
+          if (googleErrorDetails.toLowerCase().includes("api key not valid")) {
+            console.warn(
+              "🔑 Chave API corrompida/inválida detectada! Banindo chave e rotacionando...",
+            );
+            apiKeyAtiva = await getNextKey();
+            // Não incrementa processadosHoje nem marca como erro, ele vai tentar o mesmo produto de novo com a próxima chave
+          } else {
+            // Se for realmente um erro de payload
+            await prisma.product.update({
+              where: { id: product.id },
+              data: { expertStatus: "ERROR", expertLastChecked: agora },
+            });
+            processadosHoje++;
+          }
         } else {
-          console.error(`🌐 Erro de Rede/API no ID ${product.id}: ${errorMsg}`);
+          console.error(
+            `🌐 Erro de Rede/API no ID ${product.id}: ${errorMsg} | Detalhe: ${googleErrorDetails}`,
+          );
           apiKeyAtiva = await getNextKey();
           await new Promise((r) => setTimeout(r, 10000));
         }

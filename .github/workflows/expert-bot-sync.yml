@@ -1,3 +1,4 @@
+#expert-bot-sync.yml
 name: PRICELAB Expert Analysis Sync
 
 on:
@@ -42,7 +43,7 @@ jobs:
           GEMINI_EXPERT_BOT4: ${{ secrets.GEMINI_EXPERT_BOT4 }}
           GEMINI_EXPERT_BOT5: ${{ secrets.GEMINI_EXPERT_BOT5 }}
           GEMINI_EXPERT_BOT6: ${{ secrets.GEMINI_EXPERT_BOT6 }}
-          GEMINI_EXPERT_BOT7: ${{ secrets.GEMINI_EXPERT_BOT7 }}s
+          GEMINI_EXPERT_BOT7: ${{ secrets.GEMINI_EXPERT_BOT7 }}
           GEMINI_EXPERT_BOT8: ${{ secrets.GEMINI_EXPERT_BOT8 }}
           GEMINI_EXPERT_BOT9: ${{ secrets.GEMINI_EXPERT_BOT9 }}
           GEMINI_EXPERT_BOT10: ${{ secrets.GEMINI_EXPERT_BOT10 }}
