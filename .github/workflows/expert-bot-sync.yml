@@ -2,8 +2,8 @@ name: PRICELAB Expert Analysis Sync
 
 on:
   schedule:
-    # Roda todos os dias às 6:00 UTC (03:00 da manhã no Brasil)
-    - cron: "0 6 * * *"
+    # Roda todos os dias às 4:00 UTC (01:00 da manhã no Brasil)
+    - cron: "0 4 * * *"
   workflow_dispatch:
 
 jobs:
