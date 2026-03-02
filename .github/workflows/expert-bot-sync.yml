@@ -1,4 +1,3 @@
-#expert-bot-sync.yml
 name: PRICELAB Expert Analysis Sync
 
 on:
@@ -11,6 +10,10 @@ jobs:
   analyze:
     runs-on: ubuntu-latest
     environment: "pricelab"
+
+    # Define o fuso horário globalmente para este Job (resolve o bug da meia-noite)
+    env:
+      TZ: "America/Sao_Paulo"
 
     steps:
       - name: Checkout code
@@ -34,9 +37,9 @@ jobs:
       - name: Run Expert Bot Analysis
         run: node expert_bot_v25.js
         env:
+          TZ: "America/Sao_Paulo"
           PRICELAB_SUPABASE_DB: ${{ secrets.PRICELAB_SUPABASE_DB }}
           PRICELAB_SUPABASE_DB_DIRECT: ${{ secrets.PRICELAB_SUPABASE_DB_DIRECT }}
-
           GEMINI_EXPERT_BOT: ${{ secrets.GEMINI_EXPERT_BOT }}
           GEMINI_EXPERT_BOT2: ${{ secrets.GEMINI_EXPERT_BOT2 }}
           GEMINI_EXPERT_BOT3: ${{ secrets.GEMINI_EXPERT_BOT3 }}
@@ -47,3 +50,10 @@ jobs:
           GEMINI_EXPERT_BOT8: ${{ secrets.GEMINI_EXPERT_BOT8 }}
           GEMINI_EXPERT_BOT9: ${{ secrets.GEMINI_EXPERT_BOT9 }}
           GEMINI_EXPERT_BOT10: ${{ secrets.GEMINI_EXPERT_BOT10 }}
+
+      - name: Revalidate Vercel Cache
+        run: node revalidade-next.js
+        env:
+          TZ: "America/Sao_Paulo"
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
+          REVALIDATE_BASE_URL: ${{ secrets.REVALIDATE_BASE_URL }}

@@ -9,30 +9,36 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # VITAL: Conecta o Job ao ambiente onde seus segredos estão guardados
     environment: "pricelab"
+
+    # Define o fuso horário globalmente para este Job (resolve o bug da meia-noite)
+    env:
+      TZ: "America/Sao_Paulo"
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: "23.9.0"
+          node-version: "20"
           cache: "npm"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Generate Prisma Client
         run: npx prisma generate
         env:
+          PRICELAB_SUPABASE_DB: ${{ secrets.PRICELAB_SUPABASE_DB }}
           PRICELAB_SUPABASE_DB_DIRECT: ${{ secrets.PRICELAB_SUPABASE_DB_DIRECT }}
 
       - name: Run Ebay Sync
         run: node ebay_oficial_sellers_sync_v25.js
         env:
+          TZ: "America/Sao_Paulo"
+          PRICELAB_SUPABASE_DB: ${{ secrets.PRICELAB_SUPABASE_DB }}
           PRICELAB_SUPABASE_DB_DIRECT: ${{ secrets.PRICELAB_SUPABASE_DB_DIRECT }}
           EBAY_APP_ID: ${{ secrets.EBAY_APP_ID }}
           EBAY_CERT_ID: ${{ secrets.EBAY_CERT_ID }}
@@ -40,5 +46,6 @@ jobs:
       - name: Revalidate Vercel Cache
         run: node revalidade-next.js
         env:
+          TZ: "America/Sao_Paulo"
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
-          BASE_URL: ${{ secrets.BASE_URL }}
+          REVALIDATE_BASE_URL: ${{ secrets.REVALIDATE_BASE_URL }}
