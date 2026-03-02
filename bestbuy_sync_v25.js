@@ -12,7 +12,7 @@ dotenv.config();
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.SANDBOX_URL,
+      url: process.env.PRICELAB_SUPABASE_DB_DIRECT,
     },
   },
 });
