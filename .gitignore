@@ -47,3 +47,6 @@ next-env.d.ts
 *.sql
 *.log
 *.bin
+
+# allow IndexNow verification key file in public
+!public/*.txt
