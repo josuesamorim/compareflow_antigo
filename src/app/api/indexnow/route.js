@@ -141,7 +141,7 @@ export async function POST(request) {
 
     // IndexNow payload
     const payload = {
-      host: "pricelab.tech",
+      host: "www.pricelab.tech",
       key: indexNowKey,
       keyLocation: `${baseUrl}/${indexNowKey}.txt`,
       urlList,
