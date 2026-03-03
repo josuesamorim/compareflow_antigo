@@ -1,3 +1,4 @@
+// src/middleware.js  (ou proxy.js / proxy.ts conforme seu projeto)
 import { NextResponse } from "next/server";
 
 /**
@@ -10,29 +11,44 @@ export function proxy(request) {
 
   // 1) PROTEÇÃO EXCLUSIVA PARA ROTAS DE API
   if (pathname.startsWith("/api")) {
+    // Helpers locais (não remove funções existentes; só organiza e deixa robusto)
+    const json = (status, payload) =>
+      new NextResponse(JSON.stringify(payload), {
+        status,
+        headers: { "content-type": "application/json; charset=utf-8" },
+      });
+
+    const header = (name) => (request.headers.get(name) || "").trim();
+    const env = (name) => (process.env[name] || "").trim();
+
+    // Bearer robusto: aceita "Bearer <token>" com qualquer espaçamento e case-insensitive
+    const getBearerToken = () => {
+      const auth = header("authorization");
+      if (!auth) return "";
+      const m = auth.match(/^Bearer\s+(.+)$/i);
+      return (m?.[1] || "").trim();
+    };
+
+    // Token via querystring (?t=...)
+    const getQueryToken = () => (searchParams.get("t") || "").trim();
+
     /**
      * EXCEÇÃO PARA REVALIDAÇÃO DE CACHE
      * Permite que o script revalidate.js limpe o cache da Vercel via Bearer Token.
      * ✅ robusto contra whitespace no env ou header
      */
     if (pathname === "/api/revalidate") {
-      const authHeader = (request.headers.get("authorization") || "").trim();
-      const secretToken = (process.env.REVALIDATION_SECRET || "").trim();
+      const token = getBearerToken();
+      const secretToken = env("REVALIDATION_SECRET");
 
-      if (secretToken && authHeader === `Bearer ${secretToken}`) {
+      if (secretToken && token && token === secretToken) {
         return NextResponse.next();
       }
 
-      return new NextResponse(
-        JSON.stringify({
-          error: "Unauthorized",
-          message: "Falha na autenticação de revalidação.",
-        }),
-        {
-          status: 401,
-          headers: { "content-type": "application/json" },
-        }
-      );
+      return json(401, {
+        error: "Unauthorized",
+        message: "Falha na autenticação de revalidação.",
+      });
     }
 
     /**
@@ -40,46 +56,34 @@ export function proxy(request) {
      * Protege com token via query string (?t=...)
      */
     if (pathname === "/api/google-shopping") {
-      const token = (searchParams.get("t") || "").trim();
-      const secretToken = (process.env.GOOGLE_SHOPPING_TOKEN || "").trim();
+      const token = getQueryToken();
+      const secretToken = env("GOOGLE_SHOPPING_TOKEN");
 
-      if (secretToken && token === secretToken) {
+      if (secretToken && token && token === secretToken) {
         return NextResponse.next();
       }
 
-      return new NextResponse(
-        JSON.stringify({
-          error: "Forbidden",
-          message: "Acesso negado ao feed de dados.",
-        }),
-        {
-          status: 403,
-          headers: { "content-type": "application/json" },
-        }
-      );
+      return json(403, {
+        error: "Forbidden",
+        message: "Acesso negado ao feed de dados.",
+      });
     }
 
     /**
      * EXCEÇÃO PARA DEBUG DE PRODUTOS
      */
     if (pathname === "/api/debug-products") {
-      const token = (searchParams.get("t") || "").trim();
-      const secretToken = (process.env.GOOGLE_SHOPPING_TOKEN || "").trim();
+      const token = getQueryToken();
+      const secretToken = env("GOOGLE_SHOPPING_TOKEN");
 
-      if (secretToken && token === secretToken) {
+      if (secretToken && token && token === secretToken) {
         return NextResponse.next();
       }
 
-      return new NextResponse(
-        JSON.stringify({
-          error: "Forbidden",
-          message: "Acesso negado ao relatório de diagnóstico.",
-        }),
-        {
-          status: 403,
-          headers: { "content-type": "application/json" },
-        }
-      );
+      return json(403, {
+        error: "Forbidden",
+        message: "Acesso negado ao relatório de diagnóstico.",
+      });
     }
 
     /**
@@ -87,42 +91,38 @@ export function proxy(request) {
      * Permite autenticação via Bearer Token
      */
     if (pathname === "/api/indexnow") {
-      const authHeader = (request.headers.get("authorization") || "").trim();
-      const secretToken = (process.env.INDEXNOW_SECRET || "").trim();
+      const token = getBearerToken();
+      const secretToken = env("INDEXNOW_SECRET");
 
-      if (secretToken && authHeader === `Bearer ${secretToken}`) {
+      if (secretToken && token && token === secretToken) {
         return NextResponse.next();
       }
 
-      return new NextResponse(
-        JSON.stringify({
-          error: "Unauthorized",
-          message: "Falha na autenticação do IndexNow.",
-        }),
-        {
-          status: 401,
-          headers: { "content-type": "application/json" },
-        }
-      );
+      return json(401, {
+        error: "Unauthorized",
+        message: "Falha na autenticação do IndexNow.",
+      });
     }
 
     /**
      * PASSAPORTE PARA ACESSO INTERNO (SERVER-SIDE)
      * Validamos o cabeçalho 'x-internal-request' configurado no Server Component.
      */
-    const isInternal = request.headers.get("x-internal-request") === "true";
+    const isInternal = header("x-internal-request") === "true";
     if (isInternal) {
       return NextResponse.next();
     }
 
     /**
      * BLOQUEIO DE ACESSO DIRETO (Browser-to-API sem origem válida)
+     * ✅ Permite chamadas sem referer quando for:
+     *   - server-to-server / cron / GitHub Actions / Postman (com Authorization)
+     * ✅ Se não houver Authorization, exige same-origin.
      */
     const referer = request.headers.get("referer") || "";
     const host = request.headers.get("host") || "";
 
-    // Se não houver referer ou se o referer não for o próprio host, bloqueia 401.
-    // ✅ compara com origem esperada (mais robusto que includes(host) puro)
+    const hasAuth = Boolean(header("authorization")); // qualquer auth já sinaliza request "intencional"
     const isSameOrigin =
       referer && host
         ? (() => {
@@ -130,23 +130,17 @@ export function proxy(request) {
               const refUrl = new URL(referer);
               return refUrl.host === host;
             } catch {
-              // Se vier referer inválido, considera não autorizado
               return false;
             }
           })()
         : false;
 
-    if (!isSameOrigin) {
-      return new NextResponse(
-        JSON.stringify({
-          error: "Unauthorized Access",
-          message: "Acesso permitido apenas através da interface oficial.",
-        }),
-        {
-          status: 401,
-          headers: { "content-type": "application/json" },
-        }
-      );
+    // Se veio com Authorization (Bearer), não precisa de referer (Postman/cron)
+    if (!hasAuth && !isSameOrigin) {
+      return json(401, {
+        error: "Unauthorized Access",
+        message: "Acesso permitido apenas através da interface oficial.",
+      });
     }
   }
 
