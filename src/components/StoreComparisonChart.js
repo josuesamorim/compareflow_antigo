@@ -62,7 +62,8 @@ const extractConditionFromHistoryItem = (item) => {
   // 4) Se vier rawDetails (raríssimo em histórico), tenta achar
   if (item.rawDetails) {
     if (item.rawDetails.condition != null) return normalizeCondition(item.rawDetails.condition);
-    if (item.rawDetails.bby && item.rawDetails.bby.condition != null) return normalizeCondition(item.rawDetails.bby.condition);
+    if (item.rawDetails.bby && item.rawDetails.bby.condition != null)
+      return normalizeCondition(item.rawDetails.bby.condition);
   }
 
   // fallback
@@ -90,22 +91,22 @@ export default function StoreComparisonChart({ history }) {
   // 1. Extração de Condições Disponíveis
   const CONDITION_ORDER = ["NEW", "OPEN_BOX", "REFURBISHED", "USED"];
 
-const availableConditions = useMemo(() => {
-  if (!history || !Array.isArray(history) || history.length === 0) return ["NEW"];
+  const availableConditions = useMemo(() => {
+    if (!history || !Array.isArray(history) || history.length === 0) return ["NEW"];
 
-  const conds = history.map((item) => extractConditionFromHistoryItem(item));
-  const unique = [...new Set(conds)].filter(Boolean);
+    const conds = history.map((item) => extractConditionFromHistoryItem(item));
+    const unique = [...new Set(conds)].filter(Boolean);
 
-  const sorted = unique.sort((a, b) => {
-    const ia = CONDITION_ORDER.indexOf(a);
-    const ib = CONDITION_ORDER.indexOf(b);
-    const ra = ia === -1 ? 999 : ia;
-    const rb = ib === -1 ? 999 : ib;
-    return ra - rb || a.localeCompare(b);
-  });
+    const sorted = unique.sort((a, b) => {
+      const ia = CONDITION_ORDER.indexOf(a);
+      const ib = CONDITION_ORDER.indexOf(b);
+      const ra = ia === -1 ? 999 : ia;
+      const rb = ib === -1 ? 999 : ib;
+      return ra - rb || a.localeCompare(b);
+    });
 
-  return sorted.length > 0 ? sorted : ["NEW"];
-}, [history]);
+    return sorted.length > 0 ? sorted : ["NEW"];
+  }, [history]);
 
   const [activeCondition, setActiveCondition] = useState("NEW");
 
@@ -133,7 +134,15 @@ const availableConditions = useMemo(() => {
   // 4. Processamento Robusto de Dados (Mapeamento de Linha do Tempo)
   const processedData = useMemo(() => {
     if (historyByCondition.length === 0) {
-      return { categories: [], bestPrice: [], bestStoreNames: [], storeData: {} };
+      return {
+        categories: [],
+        timestamps: [],
+        bestPrice: [],
+        bestStoreNames: [],
+        storeData: {},
+        storeSeriesXY: {},
+        bestSeriesXY: [],
+      };
     }
 
     const dailyMap = {};
@@ -142,18 +151,14 @@ const availableConditions = useMemo(() => {
 
     // Organiza todos os preços por data e loja
     historyByCondition.forEach((item) => {
-      const rawDate =
-        item.date ||
-        item.capturedAt ||
-        item.captured_at ||
-        item.createdAt ||
-        item.created_at;
+      const rawDate = item.date || item.capturedAt || item.captured_at || item.createdAt || item.created_at;
 
       const storeName = item.store || (item.listing && item.listing.store) || "Retailer";
 
       const d = new Date(rawDate);
       if (isNaN(d.getTime())) return;
 
+      // Normaliza para dia (UTC) para evitar "pular" data por timezone
       const dateKey = d.toISOString().split("T")[0];
       allDates.add(dateKey);
 
@@ -174,7 +179,15 @@ const availableConditions = useMemo(() => {
 
     // Se por algum motivo não ficou nenhuma data válida
     if (sortedDateKeys.length === 0) {
-      return { categories: [], bestPrice: [], bestStoreNames: [], storeData: {} };
+      return {
+        categories: [],
+        timestamps: [],
+        bestPrice: [],
+        bestStoreNames: [],
+        storeData: {},
+        storeSeriesXY: {},
+        bestSeriesXY: [],
+      };
     }
 
     // Filtra as datas pelo seletor (7D, 30D, 90D)
@@ -186,13 +199,15 @@ const availableConditions = useMemo(() => {
 
     const finalDateKeys = filteredDateKeys.length > 0 ? filteredDateKeys : sortedDateKeys;
 
-    // Constrói as séries de dados
+    // Constrói labels e timestamps (para datetime)
     const categories = finalDateKeys.map((key) => {
-      const d = new Date(key);
+      const d = new Date(`${key}T00:00:00.000Z`);
       return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
     });
 
-    // Identifica qual loja é a melhor para cada dia da categoria
+    const timestamps = finalDateKeys.map((key) => new Date(`${key}T00:00:00.000Z`).getTime());
+
+    // Identifica qual loja é a melhor para cada dia
     const bestStoreNames = [];
     const bestPrices = finalDateKeys.map((key) => {
       const day = dailyMap[key];
@@ -211,6 +226,7 @@ const availableConditions = useMemo(() => {
       return minPrice === Infinity ? null : minPrice;
     });
 
+    // Store data por dia (mantém compat com seu estado/legenda)
     const storeData = {};
     availableStores.forEach((store) => {
       storeData[store] = finalDateKeys.map((key) => {
@@ -219,7 +235,53 @@ const availableConditions = useMemo(() => {
       });
     });
 
-    return { categories, bestPrice: bestPrices, bestStoreNames, storeData };
+    /**
+     * ✅ CORREÇÃO PRINCIPAL:
+     * Para evitar que o ApexCharts "quebre" linhas em gaps grandes com xaxis categories,
+     * geramos séries XY (datetime) com pontos reais (sem preencher nulos).
+     *
+     * - bestSeriesXY: [{ x, y }, ...] (mantém nulls como gaps visuais)
+     * - storeSeriesXY[store]: [{ x, y }, ...] só com dias que tiveram preço
+     *
+     * Observação: Mantemos também arrays antigos (bestPrice/storeData) para não quebrar nada seu.
+     */
+    const bestSeriesXY = finalDateKeys.map((key) => {
+      const x = new Date(`${key}T00:00:00.000Z`).getTime();
+      const y = (() => {
+        const day = dailyMap[key];
+        const storesInDay = (day && day.stores) || {};
+        let min = Infinity;
+        Object.values(storesInDay).forEach((p) => {
+          if (typeof p === "number" && Number.isFinite(p) && p > 0 && p < min) min = p;
+        });
+        return min === Infinity ? null : min;
+      })();
+      return { x, y };
+    });
+
+    const storeSeriesXY = {};
+    availableStores.forEach((store) => {
+      storeSeriesXY[store] = finalDateKeys
+        .map((key) => {
+          const x = new Date(`${key}T00:00:00.000Z`).getTime();
+          const y = dailyMap[key]?.stores?.[store];
+          if (y == null) return null;
+          const num = Number(y);
+          if (!Number.isFinite(num) || num <= 0) return null;
+          return { x, y: num };
+        })
+        .filter(Boolean);
+    });
+
+    return {
+      categories,
+      timestamps,
+      bestPrice: bestPrices,
+      bestStoreNames,
+      storeData,
+      storeSeriesXY,
+      bestSeriesXY,
+    };
   }, [historyByCondition, days, availableStores]);
 
   if (!isMounted) {
@@ -229,8 +291,8 @@ const availableConditions = useMemo(() => {
   // 5. Configuração das Séries do Apex
   const series =
     viewMode === "all_stores"
-      ? [{ name: "Market Best Price", data: processedData.bestPrice }]
-      : [{ name: viewMode, data: processedData.storeData[viewMode] || [] }];
+      ? [{ name: "Market Best Price", data: processedData.bestSeriesXY || [] }]
+      : [{ name: viewMode, data: processedData.storeSeriesXY?.[viewMode] || [] }];
 
   const primaryColor = "#3b82f6";
   const storeColors = ["#10b981", "#f59e0b", "#8b5cf6", "#f43f5e", "#06b6d4"];
@@ -251,6 +313,7 @@ const availableConditions = useMemo(() => {
     stroke: {
       curve: "smooth",
       width: 3,
+      // ✅ Mantém ligado: com XY + gaps, o Apex respeita melhor
       connectNulls: true,
     },
     fill: {
@@ -269,14 +332,24 @@ const availableConditions = useMemo(() => {
       padding: { left: 0, right: 10 },
     },
     xaxis: {
-      categories: processedData.categories,
+      // ✅ CORREÇÃO: usar datetime elimina o bug de “não ligar” com gaps grandes por categoria
+      type: "datetime",
       axisBorder: { show: false },
       axisTicks: { show: false },
       labels: {
         style: { colors: "#000000", fontSize: "9px", fontWeight: 900 },
         rotate: 0,
         hideOverlappingLabels: true,
+        datetimeUTC: true,
+        // Mostra M/D (mantém o mesmo estilo que você tinha)
+        formatter: (value, timestamp) => {
+          const t = typeof timestamp === "number" ? timestamp : Number(value);
+          if (!Number.isFinite(t)) return "";
+          const d = new Date(t);
+          return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+        },
       },
+      tooltip: { enabled: false },
     },
     yaxis: {
       labels: {
@@ -291,6 +364,14 @@ const availableConditions = useMemo(() => {
     tooltip: {
       theme: "light",
       shared: true,
+      x: {
+        formatter: (val) => {
+          const t = Number(val);
+          if (!Number.isFinite(t)) return "";
+          const d = new Date(t);
+          return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`;
+        },
+      },
       y: {
         formatter: (val) => (val != null ? `$${Number(val).toFixed(2)}` : "N/A"),
         title: {
@@ -304,7 +385,7 @@ const availableConditions = useMemo(() => {
         },
       },
     },
-    markers: { size: 0, hover: { size: 6, strokeWidth: 0 } },
+    markers: { size: 4, strokeWidth: 0, hover: { size: 7 } },
   };
 
   return (
