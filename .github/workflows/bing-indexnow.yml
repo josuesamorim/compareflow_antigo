@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  indexnow:
     runs-on: ubuntu-latest
     environment: "pricelab"
 
@@ -18,29 +18,69 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
+      # ✅ Não precisa de Node/NPM pra rodar curl.
+      # Removi pra ficar mais rápido e mais confiável.
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Notify Bing via IndexNow (Batch 1)
+      - name: Notify Bing via IndexNow (loop until done)
+        env:
+          BASE_URL: ${{ secrets.PRICEBASE_URL }}
+          INDEXNOW_SECRET: ${{ secrets.INDEXNOW_SECRET }}
         run: |
-          curl -X POST "${{ secrets.PRICEBASE_URL }}/api/indexnow?offset=0" \
-          -H "Authorization: Bearer ${{ secrets.INDEXNOW_SECRET }}" \
-          -H "Content-Type: application/json"
+          set -euo pipefail
 
-      - name: Notify Bing via IndexNow (Batch 2)
-        run: |
-          curl -X POST "${{ secrets.PRICEBASE_URL }}/api/indexnow?offset=10000" \
-          -H "Authorization: Bearer ${{ secrets.INDEXNOW_SECRET }}" \
-          -H "Content-Type: application/json"
+          if [ -z "${BASE_URL:-}" ]; then
+            echo "❌ Missing secret PRICEBASE_URL"
+            exit 1
+          fi
 
-      - name: Notify Bing via IndexNow (Batch 3)
-        run: |
-          curl -X POST "${{ secrets.PRICEBASE_URL }}/api/indexnow?offset=20000" \
-          -H "Authorization: Bearer ${{ secrets.INDEXNOW_SECRET }}" \
-          -H "Content-Type: application/json"
+          if [ -z "${INDEXNOW_SECRET:-}" ]; then
+            echo "❌ Missing secret INDEXNOW_SECRET"
+            exit 1
+          fi
+
+          # ✅ Garante que usa www (seu domínio sem www dá 307)
+          case "$BASE_URL" in
+            https://www.*) ;;
+            https://*) echo "⚠️ PRICEBASE_URL sem www. Recomendo usar https://www.pricelab.tech" ;;
+            *) echo "❌ PRICEBASE_URL inválida (use https://www.pricelab.tech)"; exit 1 ;;
+          esac
+
+          offset=0
+          max_loops=50   # safety: 50 * 10k = 500k URLs
+
+          for i in $(seq 1 "$max_loops"); do
+            echo ""
+            echo "🚀 IndexNow batch #$i | offset=$offset"
+
+            resp="$(curl -sS -X POST "${BASE_URL}/api/indexnow?offset=${offset}" \
+              -H "Authorization: Bearer ${INDEXNOW_SECRET}" \
+              -H "Content-Type: application/json")"
+
+            echo "$resp" | jq .
+
+            # Se a API retornar erro padronizado, falha o job
+            err="$(echo "$resp" | jq -r '.error // empty')"
+            if [ -n "$err" ]; then
+              msg="$(echo "$resp" | jq -r '.message // empty')"
+              status="$(echo "$resp" | jq -r '.status // empty')"
+              echo "❌ IndexNow error: ${err} status=${status} message=${msg}"
+              exit 1
+            fi
+
+            nextOffset="$(echo "$resp" | jq -r '.nextOffset // empty')"
+
+            if [ -z "$nextOffset" ] || [ "$nextOffset" = "null" ]; then
+              echo "✅ Done. No nextOffset."
+              exit 0
+            fi
+
+            offset="$nextOffset"
+            echo "⏳ Sleeping 2s..."
+            sleep 2
+          done
+
+          echo "❌ Safety stop: max_loops reached (${max_loops})."
+          exit 1
