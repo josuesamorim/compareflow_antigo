@@ -35,7 +35,7 @@ jobs:
           PRICELAB_SUPABASE_DB_DIRECT: ${{ secrets.PRICELAB_SUPABASE_DB_DIRECT }}
 
       - name: Run BestBuy Sync
-        run: node bestbuy_sync_v25.js
+        run: node scripts/bestbuy_sync_v25.js
         env:
           # Fuso horário garantido na execução do script
           TZ: "America/Sao_Paulo"
@@ -45,7 +45,7 @@ jobs:
           BBY_BASE_URL: ${{ secrets.BBY_BASE_URL }}
 
       - name: Revalidate Vercel Cache
-        run: node revalidate-next.js
+        run: node scripts/revalidate-next.js
         env:
           TZ: "America/Sao_Paulo"
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}

@@ -1,0 +1,46 @@
+name: PRICELAB Bing IndexNow Update
+
+on:
+  schedule:
+    # Roda todos os dias às 12:00 UTC (09:00 da manhã no Brasil)
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: "pricelab"
+
+    env:
+      TZ: "America/Sao_Paulo"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Notify Bing via IndexNow (Batch 1)
+        run: |
+          curl -X POST "${{ secrets.PRICEBASE_URL }}/api/indexnow?offset=0" \
+          -H "Authorization: Bearer ${{ secrets.INDEXNOW_SECRET }}" \
+          -H "Content-Type: application/json"
+
+      - name: Notify Bing via IndexNow (Batch 2)
+        run: |
+          curl -X POST "${{ secrets.PRICEBASE_URL }}/api/indexnow?offset=10000" \
+          -H "Authorization: Bearer ${{ secrets.INDEXNOW_SECRET }}" \
+          -H "Content-Type: application/json"
+
+      - name: Notify Bing via IndexNow (Batch 3)
+        run: |
+          curl -X POST "${{ secrets.PRICEBASE_URL }}/api/indexnow?offset=20000" \
+          -H "Authorization: Bearer ${{ secrets.INDEXNOW_SECRET }}" \
+          -H "Content-Type: application/json"
