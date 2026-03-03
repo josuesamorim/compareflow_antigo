@@ -33,8 +33,8 @@ export async function POST(request) {
     );
   }
 
-  // const baseUrl = "https://pricelab.tech";
-const baseUrl = "http://localhost:3000";
+  const baseUrl = "https://www.pricelab.tech";
+
 
   // Pagination
   const { searchParams } = new URL(request.url);

@@ -16,7 +16,7 @@ export const metadata = {
   },
   description:
     "Monitor price drops across major retailers like Best Buy and eBay in real-time. Find the lowest prices on smartphones, TVs, and tech accessories.",
-  metadataBase: new URL("https://pricelab.tech"),
+  metadataBase: new URL("https://www.pricelab.tech"),
   alternates: {
     canonical: "/",
     languages: {

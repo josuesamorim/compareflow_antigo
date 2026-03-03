@@ -4,7 +4,7 @@
 // - Purges: global pages + search routes + categories + products (optional "full" mode)
 // - Safe: uses env vars, supports chunking, retry, and logs clearly
 
-const REVALIDATE_BASE_URL = (process.env.REVALIDATE_BASE_URL || "https://pricelab.tech").trim();
+const REVALIDATE_BASE_URL = (process.env.REVALIDATE_BASE_URL || "https://www.pricelab.tech").trim();
 const REVALIDATION_SECRET = (process.env.REVALIDATION_SECRET || "").trim();
 
 const MODE = (process.env.REVALIDATE_MODE || "light").trim().toLowerCase();

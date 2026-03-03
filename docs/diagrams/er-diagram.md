@@ -235,7 +235,7 @@ This is a best-effort mapping and should be refined as categories expand.
 ## 11) Local / Production Base URL
 
 Recommended:
-- Production feed uses: `https://pricelab.tech`
+- Production feed uses: `https://www.pricelab.tech`
 - Local testing uses: `http://localhost:3000`
 
 Always include scheme (`http/https`) in `<link>` and `<g:link>`.

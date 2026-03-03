@@ -23,7 +23,7 @@ export async function GET(request) {
     );
   }
 
-  const baseUrl = "localhost:3000";
+  const baseUrl = "https://www.pricelab.tech";
   
 
   try {
