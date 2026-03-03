@@ -68,7 +68,7 @@ function ProductImage({ src, alt, condition, priority = false }) {
         // Atributo crucial para resolver "Properly size images"
         sizes="(max-width: 768px) 100vw, 300px"
         // onLoad funciona, mas o callback oficial é onLoadingComplete (dispara de forma mais consistente)
-        onLoadingComplete={() => setLoaded(true)}
+        onLoad={() => setLoaded(true)}
         onError={() => {
           console.warn(`Erro ao carregar imagem: ${src}`);
           setError(true);

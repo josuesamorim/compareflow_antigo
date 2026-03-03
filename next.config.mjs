@@ -2,6 +2,9 @@
 const nextConfig = {
   /* config options here */
   reactCompiler: true,
+  experimental: {
+    allowedDevOrigins: ["http://localhost:3000", "http://192.168.0.230:3000"],
+  },
 
   // Configuração de imagens para permitir domínios externos
   images: {
