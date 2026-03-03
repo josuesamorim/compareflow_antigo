@@ -1,0 +1,37 @@
+name: PRICELAB Manual Cache Revalidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Revalidate mode (light | medium | full)"
+        required: true
+        default: "light"
+
+jobs:
+  revalidate:
+    runs-on: ubuntu-latest
+    environment: "pricelab"
+
+    env:
+      TZ: "America/Sao_Paulo"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Revalidation Script
+        run: node scripts/revalidate-next.js
+        env:
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
+          REVALIDATE_BASE_URL: ${{ secrets.REVALIDATE_BASE_URL }}
+          REVALIDATE_MODE: ${{ github.event.inputs.mode }}
