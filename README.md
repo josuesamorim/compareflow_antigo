@@ -1,144 +1,329 @@
 # PRICELAB 🚀
 
-O **PRICELAB** é um motor de comparação de preços de alta performance construído com **Next.js**, **Prisma** e **Supabase**. O sistema foi desenhado para suportar 300+ VUs (Virtual Users) simultâneos, utilizando indexação GIN para busca textual avançada e um pipeline de auditoria técnica automatizado por IA para garantir a veracidade das especificações.
+O **PRICELAB** é um motor de comparação de preços de alta performance construído com **Next.js**, **Prisma ORM** e **Supabase**.
+
+O sistema foi projetado com arquitetura relacional moderna, separando claramente:
+	•	🧱 Modelo base do produto (Product)
+	•	🏪 Ofertas individuais de lojas (Listing)
+	•	📊 Histórico de preços (PriceHistory)
+	•	🤖 Pipeline de auditoria técnica por IA
+	•	🧠 Pipeline separado de limpeza de título por IA
+
+Essa separação garante:
+	•	Comparação de preços real entre lojas
+	•	Alta escalabilidade
+	•	Indexação avançada
+	•	Feed estruturado para Google Merchant Center
+	•	Sistema de auditoria inteligente
+	•	Controle de reprocessamento via hash
+
 
 ## 🛠️ Configuração do Banco de Dados (Supabase/Postgres)
 
-Para que a busca, o agrupamento de modelos e a fila de auditoria funcionem corretamente, é **obrigatório** seguir a ordem de execução abaixo no SQL Editor do seu Supabase.
+⚠️ É obrigatório executar as etapas abaixo na ordem exata no SQL Editor do Supabase.
 
-### O Plano de Voo (Siga esta ordem exata):
 
-#### 1. Ativar Extensões e Tipos Personalizados
+### 🚀 PLANO DE EXECUÇÃO (Siga esta ordem exata):
 
-Habilita a busca por similaridade (fuzzy search) e define os estados possíveis para a auditoria técnica de produtos.
+
+#### 1️⃣ Ativar Extensão e Criar ENUM
+
+Habilita busca fuzzy e define o enum da IA de auditoria.
 
 ```sql
--- Habilita extensão para busca aproximada
+-- Extensão para busca por similaridade
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
--- Cria o tipo ENUM para o status do Especialista (IA/Auditoria)
-CREATE TYPE "ExpertStatus" AS ENUM ('PENDING', 'VALID', 'PARTIAL', 'PRE_RELEASE', 'INSUFFICIENT', 'ERROR', 'BLOCKED');
-
+-- Enum do status do especialista (IA de review técnico)
+CREATE TYPE "ExpertStatus" AS ENUM (
+  'PENDING',
+  'VALID',
+  'PARTIAL',
+  'PRE_RELEASE',
+  'INSUFFICIENT',
+  'ERROR',
+  'BLOCKED'
+);
 ```
 
-#### 2. Criar a Função de Otimização "Tudo-em-Um"
 
-Esta função é o cérebro do banco de dados. Ela unifica a **Normalização do Modelo** (essencial para comparar preços entre lojas diferentes) e o **Vetor de Busca com Pesos**.
+#### 2️⃣ Trigger Inteligente de Otimização de Produto
 
-```sql
-CREATE OR REPLACE FUNCTION trigger_optimize_product_data() 
+Essa função é o núcleo da performance do sistema.
+
+Ela faz duas coisas automaticamente:
+	1.	🔑 Gera normalized_model_key
+	2.	🔍 Atualiza search_vector com pesos
+
+```sql  
+CREATE OR REPLACE FUNCTION trigger_optimize_product_data()
 RETURNS trigger AS $$
 BEGIN
-  -- 1. Lógica de Normalização de Modelo
-  -- Remove variações de cor, capacidade e operadora para gerar uma chave única de agrupamento.
-  NEW.normalized_model_key := lower(regexp_replace(regexp_replace(NEW.name, '\s*(128GB|256GB|512GB|1TB|2TB|5G|LTE|Unlocked|Verizon|AT&T|T-Mobile|Burgundy|Green|Phantom Black|White|Pink|Blue|Graphite|Silver|Gold|Titanium|Yellow|Purple|Midnight|Starlight)\s*', '', 'gi'), '[^a-zA-Z0-9]', '', 'g'));
-  
-  -- 2. Lógica do Vetor de Busca Textual com Pesos (A para Nome, B para Marca)
-  -- Isso garante que buscas pelo nome do produto tenham prioridade sobre a marca.
-  NEW.search_vector := 
-    setweight(to_tsvector('english', COALESCE(NEW.name, '')), 'A') ||
-    setweight(to_tsvector('english', COALESCE(NEW.brand, '')), 'B');
-  
+
+  -- Normalização do modelo (remove ruídos de variação)
+  NEW.normalized_model_key :=
+    lower(
+      regexp_replace(
+        regexp_replace(
+          NEW.name,
+          '\s*(128GB|256GB|512GB|1TB|2TB|5G|LTE|Unlocked|Verizon|AT&T|T-Mobile|Burgundy|Green|Phantom Black|White|Pink|Blue|Graphite|Silver|Gold|Titanium|Yellow|Purple|Midnight|Starlight)\s*',
+          '',
+          'gi'
+        ),
+        '[^a-zA-Z0-9]',
+        '',
+        'g'
+      )
+    );
+
+  -- Vetor de busca com peso A para nome e B para marca
+  NEW.search_vector :=
+      setweight(to_tsvector('english', COALESCE(NEW.name, '')), 'A') ||
+      setweight(to_tsvector('english', COALESCE(NEW.brand, '')), 'B');
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Ativa o Trigger Único para INSERT e UPDATE
 DROP TRIGGER IF EXISTS trg_products_optimization ON products;
+
 CREATE TRIGGER trg_products_optimization
 BEFORE INSERT OR UPDATE ON products
-FOR EACH ROW EXECUTE FUNCTION trigger_optimize_product_data();
-
+FOR EACH ROW
+EXECUTE FUNCTION trigger_optimize_product_data();
 ```
 
-#### 3. Processar Dados Existentes e Ajustes de Coluna
 
-Caso você já tenha dados, force a atualização para preencher as novas colunas e garantir que os tipos de dados estejam corretos:
+⸻
+
+#### 3️⃣ Ajustes de Coluna e Atualização de Dados
 
 ```sql
--- Converte a coluna expert_status para o novo tipo ENUM (caso já exista como text)
-ALTER TABLE products 
-ALTER COLUMN expert_status TYPE "ExpertStatus" 
+-- Ajusta expert_status para ENUM
+ALTER TABLE products
+ALTER COLUMN expert_status TYPE "ExpertStatus"
 USING expert_status::text::"ExpertStatus";
 
--- Ajusta precisão de tempo para sincronia com Prisma
-ALTER TABLE products ALTER COLUMN expert_last_checked TYPE timestamptz;
+-- Ajusta precisão de timestamp
+ALTER TABLE products
+ALTER COLUMN expert_last_checked TYPE timestamptz;
 
--- Força o trigger a rodar em todos os produtos existentes
-UPDATE products SET name = name; 
-
+-- Força trigger rodar em dados existentes
+UPDATE products SET name = name;
 ```
 
-#### 4. Índices de Ultra Performance (Missão Crítica)
 
-Execute estes índices para garantir latência mínima em buscas complexas e na fila de processamento da IA:
+#### ⚡ ÍNDICES DE ULTRA PERFORMANCE (V2026)
+
+Agora os índices são divididos corretamente entre products e listings.
+
+
+🔍 PRODUCTS
 
 ```sql
--- 1. Busca por texto (Full Text Search)
-CREATE INDEX IF NOT EXISTS idx_products_search_vector ON products USING GIN(search_vector);
+-- Full Text Search
+CREATE INDEX IF NOT EXISTS idx_products_search_vector
+ON products USING GIN(search_vector);
 
--- 2. Busca por similaridade (Trigram) no Nome
-CREATE INDEX IF NOT EXISTS trgm_idx_products_name ON products USING GIN (name gin_trgm_ops);
+-- Trigram no nome
+CREATE INDEX IF NOT EXISTS trgm_idx_products_name
+ON products USING GIN (name gin_trgm_ops);
 
--- 3. Fila do Especialista: Otimiza a busca por produtos que precisam de auditoria urgente
+-- Fila da IA de review técnico
 CREATE INDEX IF NOT EXISTS idx_products_expert_queue
-ON products (is_expired, online_availability, expert_needs_revalidation, expert_revalidate_after, expert_last_checked);
+ON products (
+  expert_needs_revalidation,
+  expert_revalidate_after,
+  expert_last_checked,
+  expert_status
+);
 
--- 4. Agrupamento Ativo: Filtra produtos válidos, por marca e chave normalizada para o "Menor Preço"
-CREATE INDEX IF NOT EXISTS idx_products_active_grouping
-ON products (is_expired, brand, normalized_model_key, condition, sale_price);
+-- Hash de controle da IA
+CREATE INDEX IF NOT EXISTS idx_products_expert_specs_hash
+ON products(expert_specs_hash);
 
--- 5. Outros índices de suporte
-CREATE INDEX IF NOT EXISTS idx_products_expert_specs_hash ON products(expert_specs_hash);
-CREATE INDEX IF NOT EXISTS idx_products_last_updated ON products(last_updated DESC);
+-- Atualização
+CREATE INDEX IF NOT EXISTS idx_products_last_updated
+ON products(last_updated DESC);
 
+-- Slug
+CREATE INDEX IF NOT EXISTS idx_products_slug
+ON products(slug);
+
+-- UPC
+CREATE INDEX IF NOT EXISTS idx_products_upc
+ON products(upc);
 ```
 
----
 
-## 🔍 Verificação Final
-
-Rode este comando para validar se o Trigger e os novos campos de Auditoria estão operando:
+#### 🏪 LISTINGS
 
 ```sql
-SELECT 
-  name, 
-  normalized_model_key, 
-  expert_status, 
-  expert_score 
-FROM products 
-WHERE is_expired = false 
+-- Lookup por produto
+CREATE INDEX IF NOT EXISTS idx_listings_product_id
+ON listings(product_id);
+
+-- Filtro por loja
+CREATE INDEX IF NOT EXISTS idx_listings_store
+ON listings(store);
+
+-- Índice para busca de menor preço ativo
+CREATE INDEX IF NOT EXISTS idx_listings_active_price
+ON listings(product_id, is_expired, online_availability, sale_price);
+
+-- Histórico
+CREATE INDEX IF NOT EXISTS idx_price_history_listing
+ON price_history(listing_id);
+```
+
+
+#### 🧱 ARQUITETURA ATUAL
+
+
+🔹 Product
+
+Representa o modelo base.
+
+Contém:
+	•	name
+	•	brand
+	•	slug
+	•	upc
+	•	normalizedModelKey
+	•	search_vector
+	•	dados de auditoria IA
+
+
+
+🔹 Listing
+
+Representa a oferta individual da loja.
+
+Contém:
+	•	store
+	•	salePrice
+	•	regularPrice
+	•	condition
+	•	image
+	•	onlineAvailability
+	•	isExpired
+	•	rawDetails
+	•	relacionamento com Product
+
+#### A comparação de preços é feita aqui.
+
+
+🔹 PriceHistory
+
+Histórico de preço por listing.
+
+Permite:
+	•	Gráfico de variação
+	•	Monitoramento de promoções
+	•	Inteligência de preço
+
+
+#### 🤖 CAMPOS RESERVADOS PARA IA
+
+🔹 Campos expert_* (IA de Review Técnico)
+
+Todos os campos que começam com expert são exclusivos da IA de auditoria técnica.
+
+Eles NÃO devem ser manipulados pelo script de ingestão.
+
+Eles são usados para:
+	•	expertReview → JSON com análise técnica completa
+	•	expertScore → nota 0–10
+	•	expertStatus → estado do review
+	•	expertSpecsHash → controle de mudança de especificação
+	•	expertNeedsRevalidation → marca reprocessamento
+	•	expertRevalidateAfter → controle temporal
+	•	expertLastChecked → último ciclo de auditoria
+	•	expertLastUpdated → timestamp de atualização
+
+Esses campos são parte do pipeline de governança de dados.
+
+⸻
+
+🔹 Campo aiNameCleaned (IA de Limpeza de Título)
+
+Esse campo é exclusivo da segunda IA, responsável por:
+	•	Verificar se o título precisa limpeza
+	•	Padronizar nomenclatura
+	•	Remover ruídos
+	•	Garantir consistência SEO
+
+Ele NÃO pertence ao pipeline de review técnico.
+
+Ele controla apenas o fluxo de higienização do nome.
+
+⸻
+
+#### 🔍 VERIFICAÇÃO FINAL
+
+SELECT
+  name,
+  normalized_model_key,
+  expert_status,
+  expert_score
+FROM products
 LIMIT 5;
 
-```
 
----
 
-## 💻 Desenvolvimento
+#### 💻 DESENVOLVIMENTO
 
-### Pré-requisitos
+Pré-requisitos
+	•	Node.js 20+
+	•	Supabase ativo
+	•	Extensão pg_trgm habilitada
 
-* Node.js / NPM
-* Instância do Supabase ativa com extensões habilitadas.
 
-### Instalação
+#### Instalação
 
-```bash
 npm install
-# O generator agora inclui previewFeatures = ["fullTextSearchPostgres"]
+npx prisma db push
 npx prisma generate
 
-```
 
-### Notas sobre o Schema Prisma (v2026)
 
-O sistema agora utiliza funcionalidades avançadas para garantir que a IA e o Banco trabalhem em harmonia:
+#### 📦 NOTAS IMPORTANTES SOBRE O SCHEMA
 
-* **`search_vector`**: Marcado como `Unsupported("tsvector")`. O Prisma ignora a escrita direta, permitindo que o **Trigger do Postgres** gerencie o índice sem conflitos de aplicação.
-* **`expertSpecsHash`**: Campo de controle. Se os dados da loja mudarem, o hash mudará e o sistema marcará `expertNeedsRevalidation = true`.
-* **`expertStatus`**: Enum nativo que impede estados inválidos no fluxo de análise técnica.
-* **`normalizedModelKey`**: A espinha dorsal do agrupamento. Garante que "iPhone 15 Pro Blue" e "iPhone 15 Pro Titanium" sejam identificados como o mesmo modelo base para comparação de preços.
+search_vector
 
----
+Marcado como Unsupported("tsvector").
 
-**Deseja que eu ajude a configurar o script de sincronização que lê essa fila de auditoria e envia para a IA?**
+O Prisma não escreve nele.
+O PostgreSQL gerencia via trigger.
+
+⸻
+
+normalizedModelKey
+
+Permite agrupar:
+	•	“iPhone 15 Pro Blue”
+	•	“iPhone 15 Pro Titanium”
+
+Como o mesmo modelo base.
+
+⸻
+
+Arquitetura de Comparação
+
+A comparação de preços agora é feita via:
+
+product.listings
+
+E o menor salePrice válido é usado como melhor oferta.
+
+⸻
+
+#### 🎯 CONCLUSÃO
+
+O PRICELAB agora opera com:
+	•	Arquitetura relacional correta
+	•	Comparação real entre varejistas
+	•	Busca indexada com GIN
+	•	Pipeline IA dual (Review + Nome)
+	•	Controle de revalidação inteligente
+	•	Sistema pronto para escalar
