@@ -1,0 +1,87 @@
+version: 2.1
+
+# 1. Definição de Parâmetros (Para o Revalidate Manual)
+parameters:
+  revalidate_mode:
+    type: string
+    default: "light"
+
+# 2. Definição do Ambiente Padrão (Executores)
+executors:
+  node-executor:
+    docker:
+      - image: cimg/node:20.0
+    environment:
+      TZ: "America/Sao_Paulo"
+
+# 3. Os Jobs (As tarefas)
+jobs:
+  ebay_sync:
+    executor: node-executor
+    steps:
+      - checkout
+      - run: npm ci
+      - run: npx prisma generate
+      - run:
+          name: Run Ebay Sync
+          command: node scripts/ebay_oficial_sellers_sync_v25.js
+      - run:
+          name: Revalidate Vercel
+          command: node scripts/revalidate-next.js
+
+  bestbuy_sync:
+    executor: node-executor
+    steps:
+      - checkout
+      - run: npm ci
+      - run: npx prisma generate
+      - run:
+          name: Run BestBuy Sync
+          command: node scripts/bestbuy_sync_v25.js
+      - run:
+          name: Revalidate Vercel
+          command: node scripts/revalidate-next.js
+
+  manual_revalidate:
+    executor: node-executor
+    steps:
+      - checkout
+      - run: npm ci
+      - run:
+          name: Run Manual Revalidation
+          command: |
+            export REVALIDATE_MODE=<< pipeline.parameters.revalidate_mode >>
+            node scripts/revalidate-next.js
+
+  bing_indexnow:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Install jq
+          command: sudo apt-get update && sudo apt-get install -y jq
+      - run:
+          name: Notify Bing via IndexNow
+          command: |
+            # Aqui vai exatamente o seu script bash que você já usa no GitHub
+            chmod +x scripts/seu_script_indexnow.sh || true 
+            ./scripts/indexnow_loop.sh # Dica: coloque o bash num arquivo .sh pra limpar o YAML
+
+# 4. Workflows (A orquestração)
+workflows:
+  version: 2
+  
+  # Workflow para rodar quando você der um push (opcional)
+  on_push:
+    jobs:
+      - ebay_sync:
+          filters:
+            branches:
+              only: main
+
+  # Workflow para o gatilho manual
+  manual_trigger:
+    when: << pipeline.parameters.revalidate_mode >>
+    jobs:
+      - manual_revalidate
