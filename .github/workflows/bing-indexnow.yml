@@ -1,9 +1,9 @@
 name: PRICELAB Bing IndexNow Update
 
 on:
-  schedule:
-    # Roda todos os dias às 12:00 UTC (09:00 da manhã no Brasil)
-    - cron: "0 12 * * *"
+  # schedule:
+  #   # Roda todos os dias às 12:00 UTC (09:00 da manhã no Brasil)
+  #   - cron: "0 12 * * *"
   workflow_dispatch:
 
 jobs:

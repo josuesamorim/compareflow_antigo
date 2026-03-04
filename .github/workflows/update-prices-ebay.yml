@@ -1,9 +1,9 @@
 name: PRICELAB Ebay Daily Sync
 
 on:
-  schedule:
-    # Roda todos os dias às 10:00 UTC (07:00 da manhã no Brasil)
-    - cron: "0 10 * * *"
+  # schedule:
+  #   # Roda todos os dias às 10:00 UTC (07:00 da manhã no Brasil)
+  #   - cron: "0 10 * * *"
   workflow_dispatch: # Permite rodar manualmente para testes
 
 jobs:

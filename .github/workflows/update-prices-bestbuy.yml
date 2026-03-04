@@ -1,9 +1,9 @@
 name: PRICELAB Best Buy Daily Sync
 
 on:
-  schedule:
-    # Roda às 08:00 UTC (05:00 da manhã no horário de Brasília)
-    - cron: '0 8 * * *'
+  # schedule:
+  #   # Roda às 08:00 UTC (05:00 da manhã no horário de Brasília)
+  #   - cron: '0 8 * * *'
   workflow_dispatch:
 
 jobs:
