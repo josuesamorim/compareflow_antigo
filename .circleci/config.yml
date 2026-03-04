@@ -17,19 +17,49 @@ jobs:
     executor: node-executor
     steps:
       - checkout
-      - run: npm ci
-      - run: npx prisma generate
-      - run: node scripts/ebay_oficial_sellers_sync_v25.js
-      - run: node scripts/revalidate-next.js
+      - run:
+          name: Install Dependencies
+          command: npm ci
+      - run:
+          name: Generate Prisma
+          command: npx prisma generate
+      - run:
+          name: Run Ebay Sync
+          command: node scripts/ebay_oficial_sellers_sync_v25.js
+      - run:
+          name: Revalidate Cache
+          command: node scripts/revalidate-next.js
 
   bestbuy_sync:
     executor: node-executor
     steps:
       - checkout
-      - run: npm ci
-      - run: npx prisma generate
-      - run: node scripts/bestbuy_sync_v25.js
-      - run: node scripts/revalidate-next.js
+      - run:
+          name: Install Dependencies
+          command: npm ci
+      - run:
+          name: Generate Prisma
+          command: npx prisma generate
+      - run:
+          name: Run BestBuy Sync
+          command: node scripts/bestbuy_sync_v25.js
+      - run:
+          name: Revalidate Cache
+          command: node scripts/revalidate-next.js
+
+  bing_indexnow:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Install jq
+          command: sudo apt-get update && sudo apt-get install -y jq
+      - run:
+          name: Notify Bing IndexNow
+          command: |
+            chmod +x scripts/indexnow_loop.sh || true 
+            ./scripts/indexnow_loop.sh
 
   manual_revalidate:
     executor: node-executor
@@ -37,68 +67,38 @@ jobs:
       - checkout
       - run: npm ci
       - run:
+          name: Manual Revalidation
           command: |
             export REVALIDATE_MODE=<< pipeline.parameters.revalidate_mode >>
             node scripts/revalidate-next.js
 
-  bing_indexnow:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - checkout
-      - run: sudo apt-get update && sudo apt-get install -y jq
-      - run:
-          name: Notify Bing
-          command: |
-            chmod +x scripts/indexnow_loop.sh || true 
-            ./scripts/indexnow_loop.sh
-
-# AQUI ESTÁ A MÁGICA QUE FALTAVA:
 workflows:
   version: 2
 
-  # 1. Roda sempre que você salvar algo no GitHub
+  # FLUXO EM SEQUÊNCIA INVERTIDA: Best Buy -> eBay -> Bing
+  fluxo_diario_pricelab:
+    triggers:
+      - schedule:
+          cron: "0 8 * * *" # Inicia às 05:00 AM Brasil (08:00 UTC)
+          filters:
+            branches:
+              only: main
+    jobs:
+      - bestbuy_sync # Agora ele é o primeiro da fila
+      - ebay_sync:
+          requires:
+            - bestbuy_sync # Só começa quando o Best Buy terminar
+      - bing_indexnow:
+          requires:
+            - ebay_sync # Só começa quando o eBay terminar
+
   on_push:
     jobs:
-      - ebay_sync:
+      - bestbuy_sync: # Mudado para rodar Best Buy no push por padrão
           filters:
             branches:
               only: main
 
-  # 2. AGENDAMENTO EBAY (07:00 AM BRT / 10:00 UTC)
-  scheduled_ebay:
-    triggers:
-      - schedule:
-          cron: "0 10 * * *"
-          filters:
-            branches:
-              only: main
-    jobs:
-      - ebay_sync
-
-  # 3. AGENDAMENTO BEST BUY (05:00 AM BRT / 08:00 UTC)
-  scheduled_bestbuy:
-    triggers:
-      - schedule:
-          cron: "0 8 * * *"
-          filters:
-            branches:
-              only: main
-    jobs:
-      - bestbuy_sync
-
-  # 4. AGENDAMENTO BING (09:00 AM BRT / 12:00 UTC)
-  scheduled_bing:
-    triggers:
-      - schedule:
-          cron: "0 12 * * *"
-          filters:
-            branches:
-              only: main
-    jobs:
-      - bing_indexnow
-
-  # 5. GATILHO MANUAL
   manual_trigger:
     when: << pipeline.parameters.revalidate_mode >>
     jobs:
