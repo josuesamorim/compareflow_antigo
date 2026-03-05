@@ -47,25 +47,25 @@ jobs:
 workflows:
   version: 2
 
-  # FLUXO AUTOMÁTICO: Roda todos os dias às 05:00 AM (Brasil)
+  # 1. FLUXO AUTOMÁTICO (05:00 AM Brasil)
   fluxo_diario_ebay:
     triggers:
       - schedule:
-          cron: "0 8 * * *" # 08:00 UTC = 05:00 AM BRT
+          cron: "0 8 * * *"
           filters:
             branches:
               only: main
     jobs:
       - ebay_sync
 
-  # GATILHOS MANUAIS: Controlados pelos parâmetros no painel
-  manual_trigger:
-    when:
-      or:
-        - << pipeline.parameters.run_manual_revalidate >>
-        - << pipeline.parameters.run_manual_ebay >>
+  # 2. FLUXO MANUAL EBAY (Só roda se você marcar true no painel)
+  workflow_manual_ebay:
+    when: << pipeline.parameters.run_manual_ebay >>
     jobs:
-      - manual_revalidate:
-          when: << pipeline.parameters.run_manual_revalidate >>
-      - ebay_sync:
-          when: << pipeline.parameters.run_manual_ebay >>
+      - ebay_sync
+
+  # 3. FLUXO MANUAL REVALIDATE (Só roda se você marcar true no painel)
+  workflow_manual_revalidate:
+    when: << pipeline.parameters.run_manual_revalidate >>
+    jobs:
+      - manual_revalidate
