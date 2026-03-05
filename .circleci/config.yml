@@ -1,9 +1,12 @@
 version: 2.1
 
 parameters:
-  revalidate_mode:
-    type: string
-    default: "light"
+  run_manual_revalidate:
+    type: boolean
+    default: false
+  run_manual_ebay:
+    type: boolean
+    default: false
 
 executors:
   node-executor:
@@ -13,6 +16,7 @@ executors:
       TZ: "America/Sao_Paulo"
 
 jobs:
+  # Job de Sincronia do eBay
   ebay_sync:
     executor: node-executor
     steps:
@@ -30,37 +34,7 @@ jobs:
           name: Revalidate Cache
           command: node scripts/revalidate-next.js
 
-  bestbuy_sync:
-    executor: node-executor
-    steps:
-      - checkout
-      - run:
-          name: Install Dependencies
-          command: npm ci
-      - run:
-          name: Generate Prisma
-          command: npx prisma generate
-      - run:
-          name: Run BestBuy Sync
-          command: node scripts/bestbuy_sync_v25.js
-      - run:
-          name: Revalidate Cache
-          command: node scripts/revalidate-next.js
-
-  bing_indexnow:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - checkout
-      - run:
-          name: Install jq
-          command: sudo apt-get update && sudo apt-get install -y jq
-      - run:
-          name: Notify Bing IndexNow
-          command: |
-            chmod +x scripts/indexnow_loop.sh || true 
-            ./scripts/indexnow_loop.sh
-
+  # Job de Revalidação Manual (Vercel)
   manual_revalidate:
     executor: node-executor
     steps:
@@ -68,38 +42,30 @@ jobs:
       - run: npm ci
       - run:
           name: Manual Revalidation
-          command: |
-            export REVALIDATE_MODE=<< pipeline.parameters.revalidate_mode >>
-            node scripts/revalidate-next.js
+          command: node scripts/revalidate-next.js
 
 workflows:
   version: 2
 
-  # FLUXO EM SEQUÊNCIA INVERTIDA: Best Buy -> eBay -> Bing
-  fluxo_diario_pricelab:
+  # FLUXO AUTOMÁTICO: Roda todos os dias às 05:00 AM (Brasil)
+  fluxo_diario_ebay:
     triggers:
       - schedule:
-          cron: "0 8 * * *" # Inicia às 05:00 AM Brasil (08:00 UTC)
+          cron: "0 8 * * *" # 08:00 UTC = 05:00 AM BRT
           filters:
             branches:
               only: main
     jobs:
-      - bestbuy_sync # Agora ele é o primeiro da fila
-      - ebay_sync:
-          requires:
-            - bestbuy_sync # Só começa quando o Best Buy terminar
-      - bing_indexnow:
-          requires:
-            - ebay_sync # Só começa quando o eBay terminar
+      - ebay_sync
 
-  on_push:
-    jobs:
-      - bestbuy_sync: # Mudado para rodar Best Buy no push por padrão
-          filters:
-            branches:
-              only: main
-
+  # GATILHOS MANUAIS: Controlados pelos parâmetros no painel
   manual_trigger:
-    when: << pipeline.parameters.revalidate_mode >>
+    when:
+      or:
+        - << pipeline.parameters.run_manual_revalidate >>
+        - << pipeline.parameters.run_manual_ebay >>
     jobs:
-      - manual_revalidate
+      - manual_revalidate:
+          when: << pipeline.parameters.run_manual_revalidate >>
+      - ebay_sync:
+          when: << pipeline.parameters.run_manual_ebay >>
