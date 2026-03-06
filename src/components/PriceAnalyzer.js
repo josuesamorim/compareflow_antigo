@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 
 /**
- * PriceAnalyzer Component - V25+ (Condition-aware, Mobile-friendly)
+ * PriceAnalyzer Component - V26 (Condition-aware, Mobile-friendly, Confidence-safe)
  *
  * ✅ Compatível com seu schema novo:
  * - history items: { price, date|capturedAt, store, condition }
@@ -12,12 +12,21 @@ import React, { useState, useMemo, useEffect } from "react";
  * ✅ Objetivo de UX:
  * - Desktop: painel completo (snapshot + métricas)
  * - Mobile: resumo “buyer-friendly” + detalhes colapsáveis (sem sopa de letrinhas)
+ *
+ * ✅ FIX PRINCIPAL (anti “enganado”):
+ * - NÃO chama de "Overpriced" quando o histórico é raso.
+ * - Com poucos pontos, vira "Baseline / Limited data" (e o texto explica).
  */
 
 const safeNumber = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
+
+// ✅ Tuning de confiança (UX)
+const MIN_POINTS_FOR_ANY_LABEL = 2; // abaixo disso: baseline
+const MIN_POINTS_FOR_STRONG_LABEL = 5; // abaixo disso: nunca "Overpriced/Excellent", só "Baseline / Limited data"
+const MIN_POINTS_FOR_OVERPRICED = 6; // para permitir Overpriced com segurança
 
 // Normaliza condição em labels estáveis (mesmo padrão do app)
 // ✅ Padronização final usada aqui:
@@ -36,12 +45,7 @@ const normalizeCondition = (condition) => {
   }
 
   // Refurbished / Renewed / Certified
-  if (
-    c.includes("refurb") ||
-    c.includes("renewed") ||
-    c.includes("reconditioned") ||
-    c.includes("certified")
-  ) {
+  if (c.includes("refurb") || c.includes("renewed") || c.includes("reconditioned") || c.includes("certified")) {
     return "REFURBISHED";
   }
 
@@ -138,16 +142,31 @@ const formatPct = (n) => {
 };
 
 // Classifica a “qualidade” do preço atual vs mercado (baseado na mediana)
-const getDealLabel = ({ diffFromMedianPct }) => {
-  if (!Number.isFinite(diffFromMedianPct)) {
+// ✅ Agora respeita confiança: com histórico raso, nunca mostra "Overpriced/Excellent"
+const getDealLabel = ({ diffFromMedianPct, sampleCount }) => {
+  const n = Number(sampleCount ?? 0);
+
+  // Sem base confiável
+  if (!Number.isFinite(diffFromMedianPct) || n < MIN_POINTS_FOR_ANY_LABEL) {
     return {
       label: "Baseline",
       color: "text-indigo-600",
       dot: "bg-indigo-500",
-      desc: "We’re establishing a baseline.",
+      desc: "we’re establishing a baseline",
     };
   }
 
+  // Histórico ainda raso (evita "Overpriced" enganoso)
+  if (n < MIN_POINTS_FOR_STRONG_LABEL) {
+    return {
+      label: "Limited Data",
+      color: "text-slate-700",
+      dot: "bg-slate-400",
+      desc: "based on limited price history",
+    };
+  }
+
+  // A partir daqui, permitimos rótulos fortes
   if (diffFromMedianPct <= -10) {
     return {
       label: "Excellent Deal",
@@ -172,7 +191,9 @@ const getDealLabel = ({ diffFromMedianPct }) => {
       desc: "slightly below typical market price",
     };
   }
-  if (diffFromMedianPct >= 10) {
+
+  // Overpriced só com confiança maior
+  if (diffFromMedianPct >= 10 && n >= MIN_POINTS_FOR_OVERPRICED) {
     return {
       label: "Overpriced",
       color: "text-rose-600",
@@ -199,8 +220,7 @@ const getDealLabel = ({ diffFromMedianPct }) => {
 
 // Tendência simples: compara média dos últimos 3 com 3 anteriores (quando possível)
 const computeTrend = (series) => {
-  if (!series || series.length < 4)
-    return { label: "Stable", detail: "Not enough data", color: "text-slate-500" };
+  if (!series || series.length < 4) return { label: "Stable", detail: "Not enough data", color: "text-slate-500" };
 
   const last = series.slice(-3);
   const prev = series.slice(-6, -3);
@@ -219,10 +239,22 @@ const computeTrend = (series) => {
 
 const getConfidenceLabel = (n) => (n >= 12 ? "High" : n >= 6 ? "Medium" : n >= 2 ? "Low" : "Very Low");
 
-const getBuyerCopy = ({ currentPriceByCondition, med, diffPct, conditionLabel }) => {
+const getBuyerCopy = ({ currentPriceByCondition, med, diffPct, conditionLabel, sampleCount }) => {
+  const n = Number(sampleCount ?? 0);
+
   // Texto curto e “comprador-friendly”
   if (!Number.isFinite(diffPct) || !Number.isFinite(med) || med <= 0) {
+    if (n < MIN_POINTS_FOR_ANY_LABEL) {
+      return `Current price is ${formatMoney(currentPriceByCondition)} for ${conditionLabel}. We’re still collecting price history for a reliable baseline.`;
+    }
     return `Current price is ${formatMoney(currentPriceByCondition)} for ${conditionLabel}.`;
+  }
+
+  // Histórico raso: não use linguagem "overpriced" / "great deal"
+  if (n < MIN_POINTS_FOR_STRONG_LABEL) {
+    return `Current price is ${formatMoney(currentPriceByCondition)} for ${conditionLabel}. Typical price (${formatMoney(
+      med,
+    )}) is estimated from limited history.`;
   }
 
   const abs = Math.abs(diffPct);
@@ -273,8 +305,7 @@ const PriceAnalyzer = ({ currentPrice, history, offers = [], initialCondition = 
     const order = ["NEW", "OPEN-BOX", "REFURBISHED", "PRE-OWNED"];
     unique.sort(
       (a, b) =>
-        (order.indexOf(a) === -1 ? 999 : order.indexOf(a)) -
-        (order.indexOf(b) === -1 ? 999 : order.indexOf(b)),
+        (order.indexOf(a) === -1 ? 999 : order.indexOf(a)) - (order.indexOf(b) === -1 ? 999 : order.indexOf(b)),
     );
 
     return unique.length ? unique : ["NEW"];
@@ -364,11 +395,15 @@ const PriceAnalyzer = ({ currentPrice, history, offers = [], initialCondition = 
   );
 
   const deal = useMemo(
-    () => getDealLabel({ diffFromMedianPct: activeStats?.diffFromMedianPct }),
-    [activeStats?.diffFromMedianPct],
+    () => getDealLabel({ diffFromMedianPct: activeStats?.diffFromMedianPct, sampleCount: activeStats?.n }),
+    [activeStats?.diffFromMedianPct, activeStats?.n],
   );
 
-  const isBaseline = !Number.isFinite(activeStats?.diffFromMedianPct) || activeStats?.n < 2;
+  const isBaseline = useMemo(() => {
+    const n = Number(activeStats?.n ?? 0);
+    if (!Number.isFinite(activeStats?.diffFromMedianPct)) return true;
+    return n < MIN_POINTS_FOR_ANY_LABEL;
+  }, [activeStats?.diffFromMedianPct, activeStats?.n]);
 
   const barPos = useMemo(() => {
     if (!Number.isFinite(activeStats?.diffFromMedianPct)) return "50%";
@@ -383,8 +418,14 @@ const PriceAnalyzer = ({ currentPrice, history, offers = [], initialCondition = 
     const curr = safeNumber(currentPriceByCondition);
     const med = safeNumber(activeStats?.med);
     const diff = safeNumber(activeStats?.diffFromMedianPct);
-    return getBuyerCopy({ currentPriceByCondition: curr, med, diffPct: diff, conditionLabel });
-  }, [currentPriceByCondition, activeStats?.med, activeStats?.diffFromMedianPct, conditionLabel]);
+    return getBuyerCopy({
+      currentPriceByCondition: curr,
+      med,
+      diffPct: diff,
+      conditionLabel,
+      sampleCount: activeStats?.n,
+    });
+  }, [currentPriceByCondition, activeStats?.med, activeStats?.diffFromMedianPct, conditionLabel, activeStats?.n]);
 
   // Snapshot reduzido (mobile): NEW vs condição ativa (se não for NEW)
   const newStats = useMemo(() => snapshot.find((x) => x.condition === "NEW"), [snapshot]);
@@ -393,10 +434,7 @@ const PriceAnalyzer = ({ currentPrice, history, offers = [], initialCondition = 
     if (!newStats?.med || activeCondition === "NEW" || !activeStats?.med) return null;
     const pct = ((activeStats.med - newStats.med) / newStats.med) * 100;
     const delta = activeStats.med - newStats.med;
-    return {
-      pct,
-      delta,
-    };
+    return { pct, delta };
   }, [newStats?.med, activeCondition, activeStats?.med]);
 
   const showToggle = availableConditions.length > 1;
@@ -412,9 +450,7 @@ const PriceAnalyzer = ({ currentPrice, history, offers = [], initialCondition = 
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full animate-pulse ${deal.dot}`} />
             <div className="min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                Market Insight
-              </div>
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Market Insight</div>
               <div className="text-sm font-black text-slate-900 leading-tight">
                 <span className={deal.color}>{deal.label}</span>{" "}
                 <span className="text-slate-500 font-bold">· {conditionLabel}</span>
@@ -423,12 +459,8 @@ const PriceAnalyzer = ({ currentPrice, history, offers = [], initialCondition = 
           </div>
 
           <div className="text-right">
-            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-              Current
-            </div>
-            <div className="text-lg font-black text-slate-900">
-              {formatMoney(currentPriceByCondition)}
-            </div>
+            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Current</div>
+            <div className="text-lg font-black text-slate-900">{formatMoney(currentPriceByCondition)}</div>
           </div>
         </div>
 
@@ -451,43 +483,29 @@ const PriceAnalyzer = ({ currentPrice, history, offers = [], initialCondition = 
         )}
 
         {/* Buyer-friendly copy */}
-        <div className="mt-3 text-sm text-slate-600 leading-relaxed">
-          {buyerCopy}
-        </div>
+        <div className="mt-3 text-sm text-slate-600 leading-relaxed">{buyerCopy}</div>
 
         {/* “Typical price” highlight */}
         <div className="mt-3 flex gap-2">
           <div className="flex-1 p-3 rounded-2xl bg-slate-50 border border-slate-100">
-            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Typical
-            </div>
-            <div className="text-base font-black text-slate-900">
-              {formatMoney(activeStats?.med)}
-            </div>
-            <div className="text-[10px] font-bold text-slate-500">
-              median price
-            </div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Typical</div>
+            <div className="text-base font-black text-slate-900">{formatMoney(activeStats?.med)}</div>
+            <div className="text-[10px] font-bold text-slate-500">median price</div>
           </div>
 
           <div className="flex-1 p-3 rounded-2xl bg-slate-50 border border-slate-100">
-            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Trend
-            </div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Trend</div>
             <div className={`text-base font-black ${activeStats?.trend?.color || "text-slate-700"}`}>
               {activeStats?.trend?.label || "Stable"}
             </div>
-            <div className="text-[10px] font-bold text-slate-500">
-              {activeStats?.trend?.detail || "—"}
-            </div>
+            <div className="text-[10px] font-bold text-slate-500">{activeStats?.trend?.detail || "—"}</div>
           </div>
         </div>
 
         {/* Savings vs New (compact) */}
         {compactCompare && (
           <div className="mt-3 p-3 rounded-2xl border border-slate-100 bg-white">
-            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Compared to New
-            </div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Compared to New</div>
             <div className="mt-1 text-sm font-bold text-slate-700">
               Typical is{" "}
               <span className={`${compactCompare.pct < 0 ? "text-emerald-700" : "text-rose-700"} font-black`}>
@@ -553,18 +571,16 @@ const PriceAnalyzer = ({ currentPrice, history, offers = [], initialCondition = 
                 <span className="text-[10px] font-bold text-slate-300 uppercase">Over</span>
               </div>
 
-              {(activeStats?.lowBand != null && activeStats?.highBand != null) && (
+              {activeStats?.lowBand != null && activeStats?.highBand != null && (
                 <div className="mt-2 text-[11px] font-bold text-slate-500">
-                  Typical range:{" "}
-                  <span className="text-slate-800">{formatMoney(activeStats.lowBand)}</span>{" "}
-                  —{" "}
+                  Typical range: <span className="text-slate-800">{formatMoney(activeStats.lowBand)}</span> —{" "}
                   <span className="text-slate-800">{formatMoney(activeStats.highBand)}</span>
                 </div>
               )}
             </div>
           )}
 
-          {/* Full Snapshot (mobile: still available, but under details) */}
+          {/* Full Snapshot (mobile: under details) */}
           {snapshot.length > 1 && (
             <div className="mt-5">
               <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">
@@ -574,9 +590,7 @@ const PriceAnalyzer = ({ currentPrice, history, offers = [], initialCondition = 
               <div className="space-y-3">
                 {snapshot.map((s) => {
                   const vsNewPct =
-                    s.condition !== "NEW" && newStats?.med && s.med
-                      ? ((s.med - newStats.med) / newStats.med) * 100
-                      : null;
+                    s.condition !== "NEW" && newStats?.med && s.med ? ((s.med - newStats.med) / newStats.med) * 100 : null;
 
                   return (
                     <div
@@ -688,12 +702,19 @@ const PriceAnalyzer = ({ currentPrice, history, offers = [], initialCondition = 
                 <span className="text-slate-700 font-bold">{conditionLabel}</span>. Current price{" "}
                 <span className="text-slate-700 font-bold">{formatMoney(currentPriceByCondition)}</span>.
               </span>
+            ) : activeStats?.n < MIN_POINTS_FOR_STRONG_LABEL ? (
+              <span>
+                Current price <span className="text-slate-800 font-black">{formatMoney(currentPriceByCondition)}</span>{" "}
+                is compared against a limited history for{" "}
+                <span className="text-slate-700 font-bold">{conditionLabel}</span>. Typical (median) is{" "}
+                <span className="text-slate-800 font-black">{formatMoney(activeStats.med)}</span>.
+              </span>
             ) : (
               <span>
                 Current price <span className="text-slate-800 font-black">{formatMoney(currentPriceByCondition)}</span>{" "}
                 is <span className="text-slate-700">{deal.desc}</span> for{" "}
-                <span className="text-slate-700 font-bold">{conditionLabel}</span>{" "}
-                (median <span className="text-slate-800 font-black">{formatMoney(activeStats.med)}</span>, avg{" "}
+                <span className="text-slate-700 font-bold">{conditionLabel}</span> (median{" "}
+                <span className="text-slate-800 font-black">{formatMoney(activeStats.med)}</span>, avg{" "}
                 <span className="text-slate-800 font-black">{formatMoney(activeStats.avg)}</span>).
               </span>
             )}
@@ -713,8 +734,7 @@ const PriceAnalyzer = ({ currentPrice, history, offers = [], initialCondition = 
             </div>
             <div className="px-3 py-1 rounded-full bg-slate-50 border border-slate-100">
               <span className="text-[10px] font-black uppercase text-slate-500">
-                Trend:{" "}
-                <span className={`${activeStats.trend.color} font-black`}>{activeStats.trend.label}</span>
+                Trend: <span className={`${activeStats.trend.color} font-black`}>{activeStats.trend.label}</span>
                 <span className="text-slate-400 font-black"> · </span>
                 <span className="text-slate-600 font-black">{activeStats.trend.detail}</span>
               </span>
@@ -756,11 +776,9 @@ const PriceAnalyzer = ({ currentPrice, history, offers = [], initialCondition = 
               <span className="text-[10px] font-bold text-slate-300 uppercase">Over</span>
             </div>
 
-            {(activeStats.lowBand != null && activeStats.highBand != null) && (
+            {activeStats?.lowBand != null && activeStats?.highBand != null && (
               <div className="mt-3 text-[11px] font-bold text-slate-500">
-                Typical range:{" "}
-                <span className="text-slate-800">{formatMoney(activeStats.lowBand)}</span>{" "}
-                —{" "}
+                Typical range: <span className="text-slate-800">{formatMoney(activeStats.lowBand)}</span> —{" "}
                 <span className="text-slate-800">{formatMoney(activeStats.highBand)}</span>
               </div>
             )}
@@ -777,9 +795,7 @@ const PriceAnalyzer = ({ currentPrice, history, offers = [], initialCondition = 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {snapshot.map((s) => {
                 const vsNewPct =
-                  s.condition !== "NEW" && newStats?.med && s.med
-                    ? ((s.med - newStats.med) / newStats.med) * 100
-                    : null;
+                  s.condition !== "NEW" && newStats?.med && s.med ? ((s.med - newStats.med) / newStats.med) * 100 : null;
 
                 return (
                   <div
@@ -799,45 +815,28 @@ const PriceAnalyzer = ({ currentPrice, history, offers = [], initialCondition = 
 
                     <div className="grid grid-cols-2 gap-2">
                       <div className="text-[11px] font-bold text-slate-500">
-                        Median{" "}
-                        <span className="text-slate-900 font-black">
-                          {formatMoney(s.med)}
-                        </span>
+                        Median <span className="text-slate-900 font-black">{formatMoney(s.med)}</span>
                       </div>
                       <div className="text-[11px] font-bold text-slate-500">
-                        Avg{" "}
-                        <span className="text-slate-900 font-black">
-                          {formatMoney(s.avg)}
-                        </span>
+                        Avg <span className="text-slate-900 font-black">{formatMoney(s.avg)}</span>
                       </div>
                       <div className="text-[11px] font-bold text-slate-500">
-                        Low{" "}
-                        <span className="text-slate-900 font-black">
-                          {formatMoney(s.min)}
-                        </span>
+                        Low <span className="text-slate-900 font-black">{formatMoney(s.min)}</span>
                       </div>
                       <div className="text-[11px] font-bold text-slate-500">
-                        High{" "}
-                        <span className="text-slate-900 font-black">
-                          {formatMoney(s.max)}
-                        </span>
+                        High <span className="text-slate-900 font-black">{formatMoney(s.max)}</span>
                       </div>
                     </div>
 
                     <div className="mt-2 flex flex-wrap gap-2">
                       <span className="px-2 py-1 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase text-slate-500">
-                        Trend:{" "}
-                        <span className={s.trend.color}>{s.trend.label}</span>
+                        Trend: <span className={s.trend.color}>{s.trend.label}</span>
                       </span>
 
                       {Number.isFinite(vsNewPct) && (
                         <span className="px-2 py-1 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase text-slate-500">
                           vs New:{" "}
-                          <span
-                            className={`${
-                              vsNewPct < 0 ? "text-emerald-600" : "text-rose-600"
-                            } font-black`}
-                          >
+                          <span className={`${vsNewPct < 0 ? "text-emerald-600" : "text-rose-600"} font-black`}>
                             {formatPct(vsNewPct)}
                           </span>
                         </span>
@@ -845,10 +844,7 @@ const PriceAnalyzer = ({ currentPrice, history, offers = [], initialCondition = 
 
                       {Number.isFinite(s.volPct) && (
                         <span className="px-2 py-1 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase text-slate-500">
-                          Vol:{" "}
-                          <span className="text-slate-800 font-black">
-                            {formatPct(s.volPct)}
-                          </span>
+                          Vol: <span className="text-slate-800 font-black">{formatPct(s.volPct)}</span>
                         </span>
                       )}
                     </div>

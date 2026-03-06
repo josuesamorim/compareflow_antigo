@@ -16,7 +16,6 @@ executors:
       TZ: "America/Sao_Paulo"
 
 jobs:
-  # Job de Sincronia do eBay
   ebay_sync:
     executor: node-executor
     steps:
@@ -34,12 +33,13 @@ jobs:
           name: Revalidate Cache
           command: node scripts/revalidate-next.js
 
-  # Job de Revalidação Manual (Vercel)
   manual_revalidate:
     executor: node-executor
     steps:
       - checkout
-      - run: npm ci
+      - run:
+          name: Install Dependencies
+          command: npm ci
       - run:
           name: Manual Revalidation
           command: node scripts/revalidate-next.js
@@ -47,7 +47,8 @@ jobs:
 workflows:
   version: 2
 
-  # 1. FLUXO AUTOMÁTICO (05:00 AM Brasil)
+  # 1. FLUXO AUTOMÁTICO (Roda pelo Cron às 05:00 AM BR / 08:00 UTC)
+  # Removido qualquer condicional "when" para não bloquear o trigger
   fluxo_diario_ebay:
     triggers:
       - schedule:
@@ -58,14 +59,23 @@ workflows:
     jobs:
       - ebay_sync
 
-  # 2. FLUXO MANUAL EBAY (Só roda se você marcar true no painel)
-  workflow_manual_ebay:
-    when: << pipeline.parameters.run_manual_ebay >>
+  # 2. FLUXOS MANUAIS (Só aparecem se os parâmetros forem passados como true)
+  # Agrupados para melhor organização no painel
+  fluxos_manuais:
+    when:
+      or:
+        - << pipeline.parameters.run_manual_ebay >>
+        - << pipeline.parameters.run_manual_revalidate >>
     jobs:
-      - ebay_sync
-
-  # 3. FLUXO MANUAL REVALIDATE (Só roda se você marcar true no painel)
-  workflow_manual_revalidate:
-    when: << pipeline.parameters.run_manual_revalidate >>
-    jobs:
-      - manual_revalidate
+      - ebay_sync:
+          name: manual_ebay_run
+          filters:
+            branches:
+              only: main
+          when: << pipeline.parameters.run_manual_ebay >>
+      - manual_revalidate:
+          name: manual_revalidate_run
+          filters:
+            branches:
+              only: main
+          when: << pipeline.parameters.run_manual_revalidate >>

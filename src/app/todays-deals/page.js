@@ -42,8 +42,7 @@ export const metadata = {
   twitter: {
     card: "summary_large_image",
     title: `Today's Top Deals in USA | PRICELAB`,
-    description:
-      "Real-time deal feed for the US market. Verified price drops across major retailers.",
+    description: "Real-time deal feed for the US market. Verified price drops across major retailers.",
   },
 };
 
@@ -77,12 +76,7 @@ function normalizeConditionToSchemaUrl(cond) {
   const c = (cond ?? "").toString().trim().toLowerCase();
   if (!c) return "https://schema.org/NewCondition";
   if (c === "new" || c.includes("brand new")) return "https://schema.org/NewCondition";
-  if (
-    c.includes("refurb") ||
-    c.includes("renewed") ||
-    c.includes("reconditioned") ||
-    c.includes("certified")
-  )
+  if (c.includes("refurb") || c.includes("renewed") || c.includes("reconditioned") || c.includes("certified"))
     return "https://schema.org/RefurbishedCondition";
   if (c.includes("open") && c.includes("box")) return "https://schema.org/UsedCondition";
   if (c.includes("used") || c.includes("pre-owned") || c.includes("preowned"))
@@ -171,33 +165,135 @@ export default async function Page() {
   let initialTotalPages = 1;
   const itemsPerPage = 12;
 
+  // Must stay in sync with API route logic (todays deals)
+  const MIN_SALE_PRICE = 49;
+  const MIN_SAVINGS = 20;
+
+  // Baseline / confidence
+  const BASELINE_WINDOW_DAYS = 30;
+  const MIN_BASELINE_SAMPLES = 5;
+
+  // ✅ Anti-overpriced
+  const OVERPRICED_CONF_SAMPLES = 6;
+  const OVERPRICED_PCT = 0.10;
+
+  // ✅ TODAY detection (ranking boost only — NÃO filtra!)
+  const DROP_WINDOW_HOURS = 24;
+  const DROP_MIN_ABS = 5;
+  const DROP_MIN_PCT = 0.02;
+  const RECENT_DEDUPE_HOURS = 96;
+
+  // Anti-manipulation
+  const SPIKE_RATIO = 3.0;
+  const SPIKE_RATIO_SOFT = 2.0;
+  const SPIKE_DAYS_MAX_FOR_HARD_FLAG = 3;
+  const TRUST_HARD = 0.1;
+  const TRUST_SOFT = 0.6;
+  const TRUST_OK = 1.0;
+
+  // ✅ Boost de ranking quando caiu hoje (ajuste fino)
+  const TODAY_BOOST = 12;
+
   try {
     /**
-     * SQL RAW V25 - CURADORIA DE ELITE
-     * - Agrupamento por normalized_model_key para evitar duplicidade de modelos.
-     * - Filtros de exclusão agressivos para manter o feed limpo.
+     * SQL RAW V28 - CONDITION PRIORITY + ANTI MANIPULATION + ANTI OVERPRICED + TODAY BOOST (NO HARD FILTER)
      *
-     * ✅ SEO additions:
-     * - condition + availability flags (for Offer JSON-LD)
-     * ✅ GTIN additions:
-     * - p.upc (para gtin12/gtin13/gtin14 quando válido)
+     * ✅ Mudança crítica:
+     * - dropped_recently NÃO é filtro. É somente boost de ranking.
+     *   Isso evita "sumir tudo" quando ainda não existe 2 coletas recentes por listing.
      */
     const products = await prisma.$queryRaw`
-      WITH SixMonthMax AS (
-        SELECT 
-          listing_id, 
-          MAX(price) as max_price_6m
-        FROM price_history
-        WHERE captured_at >= NOW() - INTERVAL '6 months'
+      WITH Hist30 AS (
+        SELECT DISTINCT
+          ph.listing_id,
+          date_trunc('day', ph.captured_at) AS day,
+          ph.price::numeric AS price
+        FROM price_history ph
+        WHERE ph.captured_at >= NOW() - INTERVAL '${BASELINE_WINDOW_DAYS} days'
+      ),
+      Baseline30 AS (
+        SELECT
+          listing_id,
+          percentile_cont(0.5) WITHIN GROUP (ORDER BY price) AS baseline_30d,
+          COUNT(*)::integer AS samples_30d
+        FROM Hist30
         GROUP BY listing_id
       ),
+      SpikeDays AS (
+        SELECT
+          h.listing_id,
+          COUNT(DISTINCT h.day)::integer AS spike_days_30d,
+          MAX(h.price)::numeric AS max_price_30d
+        FROM Hist30 h
+        JOIN Baseline30 b ON b.listing_id = h.listing_id
+        WHERE b.baseline_30d IS NOT NULL
+          AND b.baseline_30d > 0
+          AND h.price >= (b.baseline_30d * ${SPIKE_RATIO_SOFT}::numeric)
+        GROUP BY h.listing_id
+      ),
+
+      -- Histórico recente dedupe por hora+preço
+      HistRecent AS (
+        SELECT DISTINCT ON (ph.listing_id, date_trunc('hour', ph.captured_at), ph.price)
+          ph.listing_id,
+          ph.captured_at,
+          ph.price::numeric AS price
+        FROM price_history ph
+        WHERE ph.captured_at >= NOW() - INTERVAL '${RECENT_DEDUPE_HOURS} hours'
+        ORDER BY ph.listing_id, date_trunc('hour', ph.captured_at), ph.price, ph.captured_at DESC
+      ),
+      RankedRecent AS (
+        SELECT
+          listing_id,
+          captured_at,
+          price,
+          ROW_NUMBER() OVER (PARTITION BY listing_id ORDER BY captured_at DESC) AS rn
+        FROM HistRecent
+      ),
+      LastTwo AS (
+        SELECT
+          r1.listing_id,
+          r1.price AS last_price,
+          r1.captured_at AS last_captured_at,
+          r2.price AS prev_price,
+          r2.captured_at AS prev_captured_at
+        FROM RankedRecent r1
+        LEFT JOIN RankedRecent r2
+          ON r2.listing_id = r1.listing_id
+         AND r2.rn = 2
+        WHERE r1.rn = 1
+      ),
+      TodayDrop AS (
+        SELECT
+          listing_id,
+          last_price,
+          prev_price,
+          last_captured_at,
+          prev_captured_at,
+          CASE
+            WHEN prev_price IS NULL OR prev_price <= 0 THEN false
+            WHEN last_captured_at < NOW() - INTERVAL '${DROP_WINDOW_HOURS} hours' THEN false
+            WHEN last_price >= prev_price THEN false
+            WHEN (prev_price - last_price) < ${DROP_MIN_ABS}::numeric
+              AND ((prev_price - last_price) / prev_price) < ${DROP_MIN_PCT}::numeric
+            THEN false
+            ELSE true
+          END AS dropped_recently,
+          (prev_price - last_price) AS drop_amount,
+          CASE
+            WHEN prev_price IS NOT NULL AND prev_price > 0 THEN ((prev_price - last_price) / prev_price)
+            ELSE NULL
+          END AS drop_pct
+        FROM LastTwo
+      ),
+
       BestOffer AS (
         SELECT DISTINCT ON (p.normalized_model_key)
           p.id as product_id,
           l.id as listing_id,
           l.sku,
-          l.sale_price,
-          l.regular_price,
+          l.sale_price::numeric as sale_price,
+          l.regular_price::numeric as listing_regular_price,
           l.affiliate_url,
           l.image as listing_image,
           l.store,
@@ -210,13 +306,22 @@ export default async function Page() {
           p.upc,
           p.internal_category,
           p.normalized_model_key,
-          COALESCE(h.max_price_6m, l.regular_price, l.sale_price) as reference_price
+          b.baseline_30d,
+          b.samples_30d,
+          COALESCE(s.spike_days_30d, 0)::integer as spike_days_30d,
+          COALESCE(s.max_price_30d, 0)::numeric as max_price_30d,
+          COALESCE(td.dropped_recently, false) as dropped_recently,
+          td.drop_amount::numeric as drop_amount,
+          td.drop_pct::numeric as drop_pct,
+          td.last_captured_at as last_price_at
         FROM products p
         INNER JOIN listings l ON p.id = l.product_id
-        LEFT JOIN SixMonthMax h ON l.id = h.listing_id
+        LEFT JOIN Baseline30 b ON b.listing_id = l.id
+        LEFT JOIN SpikeDays s ON s.listing_id = l.id
+        LEFT JOIN TodayDrop td ON td.listing_id = l.id
         WHERE l.is_expired = false 
           AND l.online_availability = true
-          AND l.sale_price >= 49
+          AND l.sale_price >= ${MIN_SALE_PRICE}::numeric
           AND p.name NOT ILIKE '%capinha%'
           AND p.name NOT ILIKE '%case %'
           AND p.name NOT ILIKE '%cover%'
@@ -226,41 +331,136 @@ export default async function Page() {
           AND p.name NOT ILIKE '%adapter%'
           AND p.name NOT ILIKE '%screen protector%'
           AND p.name NOT ILIKE '%fone de ouvido%'
-        ORDER BY p.normalized_model_key, l.sale_price ASC
+        ORDER BY
+          p.normalized_model_key,
+          CASE
+            WHEN l.condition ILIKE '%new%' THEN 0
+            WHEN l.condition ILIKE '%open%' AND l.condition ILIKE '%box%' THEN 1
+            WHEN l.condition ILIKE '%refurb%' OR l.condition ILIKE '%renewed%' OR l.condition ILIKE '%reconditioned%' OR l.condition ILIKE '%certified%' THEN 2
+            WHEN l.condition ILIKE '%used%' OR l.condition ILIKE '%pre-owned%' OR l.condition ILIKE '%preowned%' THEN 3
+            ELSE 4
+          END ASC,
+          l.sale_price ASC
       ),
+
       DealsCalculation AS (
-        SELECT 
+        SELECT
           *,
-          ROUND(((reference_price - sale_price) / reference_price) * 100) as discount_percent
+          CASE
+            WHEN baseline_30d IS NOT NULL AND baseline_30d > 0 AND samples_30d >= ${MIN_BASELINE_SAMPLES}::integer
+              THEN baseline_30d
+            WHEN listing_regular_price IS NOT NULL AND listing_regular_price > 0
+              THEN listing_regular_price
+            ELSE sale_price
+          END AS reference_price,
+
+          (
+            (
+              CASE
+                WHEN baseline_30d IS NOT NULL AND baseline_30d > 0 AND samples_30d >= ${MIN_BASELINE_SAMPLES}::integer
+                  THEN baseline_30d
+                WHEN listing_regular_price IS NOT NULL AND listing_regular_price > 0
+                  THEN listing_regular_price
+                ELSE sale_price
+              END
+            ) - sale_price
+          ) AS savings,
+
+          CASE
+            WHEN baseline_30d IS NOT NULL AND baseline_30d > 0 THEN (max_price_30d / baseline_30d)
+            ELSE NULL
+          END AS max_to_baseline_ratio,
+
+          CASE
+            WHEN baseline_30d IS NOT NULL
+              AND baseline_30d > 0
+              AND samples_30d >= ${OVERPRICED_CONF_SAMPLES}::integer
+              AND sale_price > (baseline_30d * ${(1 + OVERPRICED_PCT).toFixed(2)}::numeric)
+            THEN true
+            ELSE false
+          END AS is_overpriced_confident
         FROM BestOffer
+      ),
+
+      DealsFiltered AS (
+        SELECT
+          *,
+          CASE
+            WHEN reference_price > 0 THEN ROUND(((reference_price - sale_price) / reference_price) * 100)
+            ELSE 0
+          END AS discount_percent,
+
+          CASE
+            WHEN max_to_baseline_ratio IS NOT NULL
+              AND max_to_baseline_ratio >= ${SPIKE_RATIO}::numeric
+              AND spike_days_30d <= ${SPIKE_DAYS_MAX_FOR_HARD_FLAG}::integer
+            THEN ${TRUST_HARD}::numeric
+
+            WHEN max_to_baseline_ratio IS NOT NULL
+              AND max_to_baseline_ratio >= ${SPIKE_RATIO_SOFT}::numeric
+              AND spike_days_30d >= 4
+            THEN ${TRUST_SOFT}::numeric
+
+            ELSE ${TRUST_OK}::numeric
+          END AS trust_multiplier
+        FROM DealsCalculation
         WHERE reference_price > sale_price
-          AND (reference_price - sale_price) >= 20
+          AND (reference_price - sale_price) >= ${MIN_SAVINGS}::numeric
+          AND is_overpriced_confident = false
+      ),
+
+      FinalDeals AS (
+        SELECT
+          *,
+          (discount_percent * trust_multiplier) AS deal_score,
+          ((discount_percent * trust_multiplier) + (CASE WHEN dropped_recently THEN ${TODAY_BOOST}::numeric ELSE 0::numeric END)) AS final_score
+        FROM DealsFiltered
       )
-      SELECT * FROM DealsCalculation
-      ORDER BY discount_percent DESC, sale_price ASC
+
+      SELECT * FROM FinalDeals
+      ORDER BY
+        dropped_recently DESC,
+        drop_pct DESC NULLS LAST,
+        drop_amount DESC NULLS LAST,
+        final_score DESC,
+        discount_percent DESC,
+        sale_price ASC
       LIMIT ${itemsPerPage}
     `;
 
     /**
-     * CONTADOR DE PÁGINAS COM PARIDADE TOTAL (V25)
+     * CONTADOR DE PÁGINAS COM PARIDADE TOTAL (V28)
+     * - Replica o pipeline essencial (sem filtro hard de dropped_recently).
      */
     const countResult = await prisma.$queryRaw`
-      WITH SixMonthMax AS (
-        SELECT listing_id, MAX(price) as max_price_6m
-        FROM price_history
-        WHERE captured_at >= NOW() - INTERVAL '6 months'
+      WITH Hist30 AS (
+        SELECT DISTINCT
+          ph.listing_id,
+          date_trunc('day', ph.captured_at) AS day,
+          ph.price::numeric AS price
+        FROM price_history ph
+        WHERE ph.captured_at >= NOW() - INTERVAL '${BASELINE_WINDOW_DAYS} days'
+      ),
+      Baseline30 AS (
+        SELECT
+          listing_id,
+          percentile_cont(0.5) WITHIN GROUP (ORDER BY price) AS baseline_30d,
+          COUNT(*)::integer AS samples_30d
+        FROM Hist30
         GROUP BY listing_id
       ),
       BestOffer AS (
         SELECT DISTINCT ON (p.normalized_model_key)
-          l.sale_price,
-          COALESCE(h.max_price_6m, l.regular_price, l.sale_price) as reference_price
+          l.sale_price::numeric as sale_price,
+          l.regular_price::numeric as listing_regular_price,
+          b.baseline_30d,
+          b.samples_30d
         FROM products p
         INNER JOIN listings l ON p.id = l.product_id
-        LEFT JOIN SixMonthMax h ON l.id = h.listing_id
+        LEFT JOIN Baseline30 b ON b.listing_id = l.id
         WHERE l.is_expired = false 
           AND l.online_availability = true
-          AND l.sale_price >= 49
+          AND l.sale_price >= ${MIN_SALE_PRICE}::numeric
           AND p.name NOT ILIKE '%capinha%'
           AND p.name NOT ILIKE '%case %'
           AND p.name NOT ILIKE '%cover%'
@@ -270,21 +470,55 @@ export default async function Page() {
           AND p.name NOT ILIKE '%adapter%'
           AND p.name NOT ILIKE '%screen protector%'
           AND p.name NOT ILIKE '%fone de ouvido%'
-        ORDER BY p.normalized_model_key, l.sale_price ASC
+        ORDER BY
+          p.normalized_model_key,
+          CASE
+            WHEN l.condition ILIKE '%new%' THEN 0
+            WHEN l.condition ILIKE '%open%' AND l.condition ILIKE '%box%' THEN 1
+            WHEN l.condition ILIKE '%refurb%' OR l.condition ILIKE '%renewed%' OR l.condition ILIKE '%reconditioned%' OR l.condition ILIKE '%certified%' THEN 2
+            WHEN l.condition ILIKE '%used%' OR l.condition ILIKE '%pre-owned%' OR l.condition ILIKE '%preowned%' THEN 3
+            ELSE 4
+          END ASC,
+          l.sale_price ASC
       ),
-      FinalDealsCount AS (
+      DealsCount AS (
         SELECT 1
         FROM BestOffer
-        WHERE reference_price > sale_price
-          AND (reference_price - sale_price) >= 20
+        WHERE
+          (
+            CASE
+              WHEN baseline_30d IS NOT NULL AND baseline_30d > 0 AND samples_30d >= ${MIN_BASELINE_SAMPLES}::integer
+                THEN baseline_30d
+              WHEN listing_regular_price IS NOT NULL AND listing_regular_price > 0
+                THEN listing_regular_price
+              ELSE sale_price
+            END
+          ) > sale_price
+          AND (
+            (
+              CASE
+                WHEN baseline_30d IS NOT NULL AND baseline_30d > 0 AND samples_30d >= ${MIN_BASELINE_SAMPLES}::integer
+                  THEN baseline_30d
+                WHEN listing_regular_price IS NOT NULL AND listing_regular_price > 0
+                  THEN listing_regular_price
+                ELSE sale_price
+              END
+            ) - sale_price
+          ) >= ${MIN_SAVINGS}::numeric
+          AND NOT (
+            baseline_30d IS NOT NULL
+            AND baseline_30d > 0
+            AND samples_30d >= ${OVERPRICED_CONF_SAMPLES}::integer
+            AND sale_price > (baseline_30d * ${(1 + OVERPRICED_PCT).toFixed(2)}::numeric)
+          )
       )
-      SELECT COUNT(*)::integer as total FROM FinalDealsCount
+      SELECT COUNT(*)::integer as total FROM DealsCount
     `;
 
-    const totalItems = Number(countResult[0]?.total || 0);
+    const totalItems = Number(countResult?.[0]?.total || 0);
     initialTotalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
 
-    initialDeals = products.map((p) => {
+    initialDeals = (products || []).map((p) => {
       const sale = normalizePrice(p.sale_price);
       const regular = normalizePrice(p.reference_price);
       const percent = Number(p.discount_percent || 0);
@@ -307,27 +541,42 @@ export default async function Page() {
         onlineAvailability: Boolean(p.online_availability),
         isExpired: Boolean(p.is_expired),
         internalCategory: p.internal_category || null,
+
+        // Extras úteis
+        trustMultiplier:
+          p.trust_multiplier !== null && p.trust_multiplier !== undefined ? Number(p.trust_multiplier) : 1,
+        spikeDays30d:
+          p.spike_days_30d !== null && p.spike_days_30d !== undefined ? Number(p.spike_days_30d) : 0,
+        baseline30d:
+          p.baseline_30d !== null && p.baseline_30d !== undefined ? Number(p.baseline_30d) : null,
+        samples30d:
+          p.samples_30d !== null && p.samples_30d !== undefined ? Number(p.samples_30d) : 0,
+        maxToBaselineRatio:
+          p.max_to_baseline_ratio !== null && p.max_to_baseline_ratio !== undefined
+            ? Number(p.max_to_baseline_ratio)
+            : null,
+        dealScore: p.deal_score !== null && p.deal_score !== undefined ? Number(p.deal_score) : null,
+
+        // Anti-overpriced
+        isOverpricedConfident: Boolean(p.is_overpriced_confident),
+
+        // Today drop telemetry (debug/UX opcional)
+        droppedRecently: Boolean(p.dropped_recently),
+        dropAmount: p.drop_amount !== null && p.drop_amount !== undefined ? Number(p.drop_amount) : null,
+        dropPct: p.drop_pct !== null && p.drop_pct !== undefined ? Number(p.drop_pct) : null,
+        lastPriceAt: p.last_price_at ? new Date(p.last_price_at).toISOString() : null,
       };
     });
   } catch (error) {
-    console.error("❌ Deals Server Error (V25):", error);
+    console.error("❌ Deals Server Error (V28):", error);
     initialDeals = [];
     initialTotalPages = 1;
   }
 
   /**
    * JSON-LD (Today’s Deals) — US-first
-   * - BreadcrumbList (helps sitelinks + category context)
-   * - CollectionPage + ItemList of Products (each with Offer, availability, condition, seller)
-   * - Audience US + inLanguage en-US
-   *
-   * ✅ GTIN improvements:
-   * - gtin12/gtin13/gtin14 ONLY if valid checksum
-   *
-   * ✅ Offer improvements:
-   * - priceValidUntil (conservador)
-   * - não envia price=0 para OutOfStock/price inválido
-   * - limpeza agressiva de undefined/null
+   * - BreadcrumbList
+   * - CollectionPage + ItemList of Products (each with Offer)
    */
   const canonical = "https://pricelab.tech/todays-deals";
   const pageName = `Today's Top Deals in USA`;
@@ -424,8 +673,14 @@ export default async function Page() {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(todayDealsJsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(todayDealsJsonLd) }}
+      />
 
       <DealsClient initialData={initialDeals} initialTotalPages={initialTotalPages} />
     </>
