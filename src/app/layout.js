@@ -4,6 +4,7 @@ import Footer from "../components/Footer";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import { GoogleTagManager } from "@next/third-parties/google";
+import Script from "next/script"; 
 
 /**
  * METADADOS GLOBAIS
@@ -105,6 +106,15 @@ export default function RootLayout({ children }) {
         <main className="flex-1 w-full relative min-h-[100dvh] flex flex-col">
           {children}
         </main>
+
+                {/* Script do eBay Partner Network */}
+        <Script id="ebay-epn-config" strategy="afterInteractive">
+          {`window._epn = {campaign: 5339143879};`}
+        </Script>
+        <Script
+          src="https://epnt.ebay.com/static/epn-smart-tools.js"
+          strategy="afterInteractive"
+        />
 
         {/* Footer */}
         <Footer />
