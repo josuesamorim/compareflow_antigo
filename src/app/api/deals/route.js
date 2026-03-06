@@ -1,10 +1,8 @@
-// deals/route.js
-
 import { prisma } from "../../../lib/prisma.js";
 import { NextResponse } from "next/server";
 
 /**
- * Deals API (V27.1 - Today Drops + Condition Priority + Anti-Manipulation + Pagination-safe + Anti-Overpriced + Confidence-safe)
+ * Deals API (V28.1 - Today Boost + Condition Priority + Anti-Manipulation + Pagination-safe + Anti-Overpriced + Confidence-safe)
  * - Paginação consistente (COUNT() OVER()).
  * - Seleção por normalized_model_key (DISTINCT ON) com PRIORIDADE DE CONDIÇÃO:
  *   NEW > OPEN-BOX > REFURBISHED > USED > OTHER (evita feed virar só refurbished).
@@ -13,13 +11,14 @@ import { NextResponse } from "next/server";
  * - Dedup do histórico por (listing_id, day, price) para evitar inflar amostras.
  * - ✅ Anti-Overpriced: bloqueia aparecer em Today's Deals quando preço atual > +10% do baseline
  *   SOMENTE quando há confiança (samples_30d >= 6) E baseline_30d existe.
- * - ✅ "Today": só entra se houve queda REAL recente (últimas 24h) no listing_id.
+ * - ✅ "Today": queda recente NÃO é filtro hard; vira boost de ranking para manter paridade com SSR.
  * - ✅ Confidence UX: expõe baseline_source + price_data_confidence para o client NÃO acusar "overpriced" com pouco histórico.
  *
  * IMPORTANT FIXES:
- * - Remove duplicação acidental do arquivo (você colou 2x antes).
- * - Evita filtros super restritivos matarem tudo: dropped_recently continua obrigatório,
- *   mas agora você recebe telemetria (confidence) para mostrar "not enough data" no produto.
+ * - Corrige o bug de paginação vazia nas páginas > 1.
+ * - Mantém paridade de lógica com app/todays-deals/page.js.
+ * - dropped_recently agora é boost de ranking, não filtro obrigatório.
+ * - total_count continua vindo do mesmo universo realmente paginado.
  */
 
 export async function GET(request) {
@@ -52,6 +51,9 @@ export async function GET(request) {
   const TRUST_HARD = 0.1;
   const TRUST_SOFT = 0.6;
   const TRUST_OK = 1.0;
+
+  // ✅ Boost de ranking quando caiu hoje
+  const TODAY_BOOST = 12;
 
   try {
     const rawResult = await prisma.$queryRaw`
@@ -309,37 +311,50 @@ export async function GET(request) {
             ELSE ${TRUST_OK}::numeric
           END AS trust_multiplier,
 
-          (discount_percent_raw * (
-            CASE
-              WHEN max_to_baseline_ratio IS NOT NULL
-                AND max_to_baseline_ratio >= ${SPIKE_RATIO}::numeric
-                AND spike_days_30d <= ${SPIKE_DAYS_MAX_FOR_HARD_FLAG}::integer
-              THEN ${TRUST_HARD}::numeric
-              WHEN max_to_baseline_ratio IS NOT NULL
-                AND max_to_baseline_ratio >= ${SPIKE_RATIO_SOFT}::numeric
-                AND spike_days_30d >= 4
-              THEN ${TRUST_SOFT}::numeric
-              ELSE ${TRUST_OK}::numeric
-            END
-          )) AS deal_score
+          (
+            discount_percent_raw * (
+              CASE
+                WHEN max_to_baseline_ratio IS NOT NULL
+                  AND max_to_baseline_ratio >= ${SPIKE_RATIO}::numeric
+                  AND spike_days_30d <= ${SPIKE_DAYS_MAX_FOR_HARD_FLAG}::integer
+                THEN ${TRUST_HARD}::numeric
+                WHEN max_to_baseline_ratio IS NOT NULL
+                  AND max_to_baseline_ratio >= ${SPIKE_RATIO_SOFT}::numeric
+                  AND spike_days_30d >= 4
+                THEN ${TRUST_SOFT}::numeric
+                ELSE ${TRUST_OK}::numeric
+              END
+            )
+          ) AS deal_score
         FROM DealsCalc
       ),
 
       FinalFiltered AS (
         SELECT
           *,
+          (
+            deal_score +
+            CASE
+              WHEN dropped_recently THEN ${TODAY_BOOST}::numeric
+              ELSE 0::numeric
+            END
+          ) AS final_score,
           COUNT(*) OVER()::integer AS total_count_int
         FROM TrustCalc
         WHERE regular_price_raw > sale_price_raw
           AND savings_raw >= ${MIN_SAVINGS}::numeric
           AND sale_price_raw >= ${MIN_SALE_PRICE}::numeric
           AND is_overpriced_confident = false
-          -- ✅ "do dia": só entra se houve queda real recente
-          AND dropped_recently = true
       )
 
       SELECT * FROM FinalFiltered
-      ORDER BY deal_score DESC, discount_percent_raw DESC, sale_price_raw ASC
+      ORDER BY
+        dropped_recently DESC,
+        drop_pct DESC NULLS LAST,
+        drop_amount DESC NULLS LAST,
+        final_score DESC,
+        discount_percent_raw DESC,
+        sale_price_raw ASC
       LIMIT ${limit} OFFSET ${offset}
     `;
 
@@ -372,6 +387,7 @@ export async function GET(request) {
           p.baseline_30d !== null && p.baseline_30d !== undefined ? Number(p.baseline_30d) : null,
         samples30d: Number(p.samples_30d || 0),
         dealScore: p.deal_score !== null && p.deal_score !== undefined ? Number(p.deal_score) : null,
+        finalScore: p.final_score !== null && p.final_score !== undefined ? Number(p.final_score) : null,
 
         // ✅ Transparência (para UI não acusar enganação com pouco histórico)
         baselineSource: p.baseline_source,
@@ -394,7 +410,7 @@ export async function GET(request) {
     const finalResult = {
       items: formattedItems,
       total: totalCount,
-      totalPages: Math.ceil(totalCount / limit),
+      totalPages: Math.max(1, Math.ceil(totalCount / limit)),
       currentPage: page,
     };
 

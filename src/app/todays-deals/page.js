@@ -1,4 +1,3 @@
-// app/todays-deals/page.js
 import DealsClient from "./DealsClient.js";
 import { prisma } from "../../lib/prisma.js";
 
@@ -196,11 +195,14 @@ export default async function Page() {
 
   try {
     /**
-     * SQL RAW V28 - CONDITION PRIORITY + ANTI MANIPULATION + ANTI OVERPRICED + TODAY BOOST (NO HARD FILTER)
+     * SQL RAW V28.1 - CONDITION PRIORITY + ANTI MANIPULATION + ANTI OVERPRICED + TODAY BOOST (NO HARD FILTER)
      *
      * ✅ Mudança crítica:
      * - dropped_recently NÃO é filtro. É somente boost de ranking.
      *   Isso evita "sumir tudo" quando ainda não existe 2 coletas recentes por listing.
+     *
+     * ✅ Correção importante:
+     * - adiciona final_score no payload inicial do SSR para ficar em total paridade com a API.
      */
     const products = await prisma.$queryRaw`
       WITH Hist30 AS (
@@ -289,13 +291,13 @@ export default async function Page() {
 
       BestOffer AS (
         SELECT DISTINCT ON (p.normalized_model_key)
-          p.id as product_id,
-          l.id as listing_id,
+          p.id AS product_id,
+          l.id AS listing_id,
           l.sku,
-          l.sale_price::numeric as sale_price,
-          l.regular_price::numeric as listing_regular_price,
+          l.sale_price::numeric AS sale_price,
+          l.regular_price::numeric AS listing_regular_price,
           l.affiliate_url,
-          l.image as listing_image,
+          l.image AS listing_image,
           l.store,
           l.condition,
           l.online_availability,
@@ -308,18 +310,18 @@ export default async function Page() {
           p.normalized_model_key,
           b.baseline_30d,
           b.samples_30d,
-          COALESCE(s.spike_days_30d, 0)::integer as spike_days_30d,
-          COALESCE(s.max_price_30d, 0)::numeric as max_price_30d,
-          COALESCE(td.dropped_recently, false) as dropped_recently,
-          td.drop_amount::numeric as drop_amount,
-          td.drop_pct::numeric as drop_pct,
-          td.last_captured_at as last_price_at
+          COALESCE(s.spike_days_30d, 0)::integer AS spike_days_30d,
+          COALESCE(s.max_price_30d, 0)::numeric AS max_price_30d,
+          COALESCE(td.dropped_recently, false) AS dropped_recently,
+          td.drop_amount::numeric AS drop_amount,
+          td.drop_pct::numeric AS drop_pct,
+          td.last_captured_at AS last_price_at
         FROM products p
         INNER JOIN listings l ON p.id = l.product_id
         LEFT JOIN Baseline30 b ON b.listing_id = l.id
         LEFT JOIN SpikeDays s ON s.listing_id = l.id
         LEFT JOIN TodayDrop td ON td.listing_id = l.id
-        WHERE l.is_expired = false 
+        WHERE l.is_expired = false
           AND l.online_availability = true
           AND l.sale_price >= ${MIN_SALE_PRICE}::numeric
           AND p.name NOT ILIKE '%capinha%'
@@ -413,7 +415,10 @@ export default async function Page() {
         SELECT
           *,
           (discount_percent * trust_multiplier) AS deal_score,
-          ((discount_percent * trust_multiplier) + (CASE WHEN dropped_recently THEN ${TODAY_BOOST}::numeric ELSE 0::numeric END)) AS final_score
+          (
+            (discount_percent * trust_multiplier) +
+            (CASE WHEN dropped_recently THEN ${TODAY_BOOST}::numeric ELSE 0::numeric END)
+          ) AS final_score
         FROM DealsFiltered
       )
 
@@ -429,8 +434,9 @@ export default async function Page() {
     `;
 
     /**
-     * CONTADOR DE PÁGINAS COM PARIDADE TOTAL (V28)
+     * CONTADOR DE PÁGINAS COM PARIDADE TOTAL (V28.1)
      * - Replica o pipeline essencial (sem filtro hard de dropped_recently).
+     * - Mantém exatamente a mesma lógica estrutural da API.
      */
     const countResult = await prisma.$queryRaw`
       WITH Hist30 AS (
@@ -451,14 +457,14 @@ export default async function Page() {
       ),
       BestOffer AS (
         SELECT DISTINCT ON (p.normalized_model_key)
-          l.sale_price::numeric as sale_price,
-          l.regular_price::numeric as listing_regular_price,
+          l.sale_price::numeric AS sale_price,
+          l.regular_price::numeric AS listing_regular_price,
           b.baseline_30d,
           b.samples_30d
         FROM products p
         INNER JOIN listings l ON p.id = l.product_id
         LEFT JOIN Baseline30 b ON b.listing_id = l.id
-        WHERE l.is_expired = false 
+        WHERE l.is_expired = false
           AND l.online_availability = true
           AND l.sale_price >= ${MIN_SALE_PRICE}::numeric
           AND p.name NOT ILIKE '%capinha%'
@@ -512,7 +518,7 @@ export default async function Page() {
             AND sale_price > (baseline_30d * ${(1 + OVERPRICED_PCT).toFixed(2)}::numeric)
           )
       )
-      SELECT COUNT(*)::integer as total FROM DealsCount
+      SELECT COUNT(*)::integer AS total FROM DealsCount
     `;
 
     const totalItems = Number(countResult?.[0]?.total || 0);
@@ -525,6 +531,7 @@ export default async function Page() {
 
       return {
         id: p.product_id.toString(),
+        listingId: p.listing_id?.toString?.() || null,
         sku: p.sku,
         name: p.name,
         image: p.listing_image || "/placeholder-deal.jpg",
@@ -541,6 +548,7 @@ export default async function Page() {
         onlineAvailability: Boolean(p.online_availability),
         isExpired: Boolean(p.is_expired),
         internalCategory: p.internal_category || null,
+        normalizedModelKey: p.normalized_model_key || null,
 
         // Extras úteis
         trustMultiplier:
@@ -556,6 +564,7 @@ export default async function Page() {
             ? Number(p.max_to_baseline_ratio)
             : null,
         dealScore: p.deal_score !== null && p.deal_score !== undefined ? Number(p.deal_score) : null,
+        finalScore: p.final_score !== null && p.final_score !== undefined ? Number(p.final_score) : null,
 
         // Anti-overpriced
         isOverpricedConfident: Boolean(p.is_overpriced_confident),
@@ -568,7 +577,7 @@ export default async function Page() {
       };
     });
   } catch (error) {
-    console.error("❌ Deals Server Error (V28):", error);
+    console.error("❌ Deals Server Error (V28.1):", error);
     initialDeals = [];
     initialTotalPages = 1;
   }
