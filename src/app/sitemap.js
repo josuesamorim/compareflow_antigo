@@ -39,7 +39,7 @@ function normalizeCategorySlug(input) {
 }
 
 export default async function sitemap() {
-  const baseUrl = "https://pricelab.tech";
+  const baseUrl = "https://compareflow.club";
 
   /**
    * Rotas estáticas importantes (SEO / trust / Merchant compliance)

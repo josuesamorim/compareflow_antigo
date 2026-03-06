@@ -33,7 +33,7 @@ export async function POST(request) {
     );
   }
 
-  const baseUrl = "https://www.pricelab.tech";
+  const baseUrl = "https://www.compareflow.club";
 
 
   // Pagination
@@ -141,7 +141,7 @@ export async function POST(request) {
 
     // IndexNow payload
     const payload = {
-      host: "www.pricelab.tech",
+      host: "www.compareflow.club",
       key: indexNowKey,
       keyLocation: `${baseUrl}/${indexNowKey}.txt`,
       urlList,

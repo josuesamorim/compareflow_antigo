@@ -10,7 +10,7 @@ export default function TermsOfUse() {
         <div className="space-y-8 text-white/90 leading-relaxed">
           <section>
             <p className="font-bold text-lg mb-4 text-white">
-              Welcome to PRICELAB. By accessing our website (pricelab.tech), you agree to comply with and be bound by the following terms and conditions.
+              Welcome to CompareFlow. By accessing our website (compareflow.club), you agree to comply with and be bound by the following terms and conditions.
             </p>
           </section>
 
@@ -19,7 +19,7 @@ export default function TermsOfUse() {
               1. Nature of Service
             </h2>
             <p>
-              PRICELAB, is an independent price comparison and information service. We provide real-time data on price drops, deals, and product specifications from various retailers. We are NOT a retailer, and we do not sell any products directly to users.
+              CompareFlow, is an independent price comparison and information service. We provide real-time data on price drops, deals, and product specifications from various retailers. We are NOT a retailer, and we do not sell any products directly to users.
             </p>
           </section>
 
@@ -37,7 +37,7 @@ export default function TermsOfUse() {
               3. Affiliate Relationship
             </h2>
             <p>
-              PRICELAB participates in various affiliate marketing programs. This means that when you click on links to retailers and make a purchase, we may receive a small commission. This relationship does not influence our price tracking or the cost to the user.
+              CompareFlow participates in various affiliate marketing programs. This means that when you click on links to retailers and make a purchase, we may receive a small commission. This relationship does not influence our price tracking or the cost to the user.
             </p>
           </section>
 
@@ -46,7 +46,7 @@ export default function TermsOfUse() {
               4. Third-Party Links and Transactions
             </h2>
             <p>
-              Our service contains links to third-party websites. Any purchase made through these links is a transaction exclusively between you and the third-party merchant. PRICELABis not responsible for any issues regarding product quality, shipping, payments, or security on external sites.
+              Our service contains links to third-party websites. Any purchase made through these links is a transaction exclusively between you and the third-party merchant. CompareFlowis not responsible for any issues regarding product quality, shipping, payments, or security on external sites.
             </p>
           </section>
 
@@ -55,7 +55,7 @@ export default function TermsOfUse() {
               5. Intellectual Property
             </h2>
             <p>
-              All trademarks, logos, and brand names displayed on this site are the property of their respective owners (e.g., Apple, Best Buy). PRICELAB uses these names for identification and comparison purposes only, and such use does not imply endorsement by the brand owners.
+              All trademarks, logos, and brand names displayed on this site are the property of their respective owners (e.g., Apple, Best Buy). CompareFlow uses these names for identification and comparison purposes only, and such use does not imply endorsement by the brand owners.
             </p>
           </section>
 
@@ -64,7 +64,7 @@ export default function TermsOfUse() {
               6. Limitation of Liability
             </h2>
             <p>
-              TO THE MAXIMUM EXTENT PERMITTED BY LAW, PRICELAB SHALL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES ARISING FROM YOUR USE OF THE WEBSITE OR ANY INACCURACIES IN THE DATA PROVIDED.
+              TO THE MAXIMUM EXTENT PERMITTED BY LAW, CompareFlow SHALL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES ARISING FROM YOUR USE OF THE WEBSITE OR ANY INACCURACIES IN THE DATA PROVIDED.
             </p>
           </section>
 
@@ -73,7 +73,7 @@ export default function TermsOfUse() {
               Last Updated: February 2026
             </p>
             <p className="text-xs text-white/50 mt-2 italic">
-              PRICELAB.TECH
+              compareflow.club
             </p>
           </div>
         </div>

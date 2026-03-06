@@ -104,7 +104,7 @@ function normalizeConditionToSchemaUrl(cond) {
 
 /**
  * SEO: GERAÇÃO DINÂMICA DE METADADOS (melhorado)
- * ✅ Título ajustado para: "PRICELAB Best Deals in USA ..."
+ * ✅ Título ajustado para: "CompareFlow Best Deals in USA ..."
  */
 export async function generateMetadata({ params }) {
   const p = await params;
@@ -114,10 +114,10 @@ export async function generateMetadata({ params }) {
   // Ex.: "gaming-consoles" -> "Gaming Consoles"
   const categoryName = toTitleCase(decodedSlug.replace(/-/g, " "));
 
-  const canonical = `https://pricelab.tech/category/${decodedSlug}`;
+  const canonical = `https://compareflow.club/category/${decodedSlug}`;
 
-  const title = `PRICELAB Best Deals in USA — ${categoryName} Price Comparison`;
-  const description = `Compare ${categoryName} prices across top US retailers. Track live deals, see availability, and find the best price today with PRICELAB.`;
+  const title = `CompareFlow Best Deals in USA — ${categoryName} Price Comparison`;
+  const description = `Compare ${categoryName} prices across top US retailers. Track live deals, see availability, and find the best price today with CompareFlow.`;
 
   return {
     title,
@@ -129,16 +129,16 @@ export async function generateMetadata({ params }) {
       },
     },
     openGraph: {
-      title: `PRICELAB Best Deals in USA — ${categoryName}`,
+      title: `CompareFlow Best Deals in USA — ${categoryName}`,
       description,
       type: "website",
       url: canonical,
       locale: "en_US",
-      siteName: "PRICELAB",
+      siteName: "CompareFlow",
     },
     twitter: {
       card: "summary_large_image",
-      title: `PRICELAB Best Deals in USA — ${categoryName}`,
+      title: `CompareFlow Best Deals in USA — ${categoryName}`,
       description,
     },
     robots: {
@@ -303,12 +303,12 @@ export default async function Page({ params }) {
    * - BreadcrumbList
    */
   const categoryName = toTitleCase(decodedSlug.replace(/-/g, " "));
-  const canonical = `https://pricelab.tech/category/${decodedSlug}`;
-  const siteName = "PRICELAB";
+  const canonical = `https://compareflow.club/category/${decodedSlug}`;
+  const siteName = "CompareFlow";
   const nowIso = new Date().toISOString();
 
   const itemListElement = (initialData.products || []).slice(0, 24).map((p3, idx) => {
-    const productUrl = `https://pricelab.tech/product/${p3.slug}`;
+    const productUrl = `https://compareflow.club/product/${p3.slug}`;
     const brandName = safeBrandName(p3.brand) || "Top Brands";
 
     const rawUpc = p3.upc || null;
@@ -375,13 +375,13 @@ export default async function Page({ params }) {
         "@type": "ListItem",
         position: 1,
         name: "Home",
-        item: "https://pricelab.tech/",
+        item: "https://compareflow.club/",
       },
       {
         "@type": "ListItem",
         position: 2,
         name: "Categories",
-        item: "https://pricelab.tech/categories",
+        item: "https://compareflow.club/categories",
       },
       {
         "@type": "ListItem",
@@ -397,13 +397,13 @@ export default async function Page({ params }) {
     "@type": "CollectionPage",
     "@id": `${canonical}#collection`,
     url: canonical,
-    name: `PRICELAB Best Deals in USA — ${categoryName} Price Comparison`,
+    name: `CompareFlow Best Deals in USA — ${categoryName} Price Comparison`,
     description: `Compare ${categoryName} prices across top US retailers. Live availability and verified pricing.`,
     inLanguage: "en-US",
     isPartOf: {
       "@type": "WebSite",
       name: siteName,
-      url: "https://pricelab.tech/",
+      url: "https://compareflow.club/",
     },
     primaryImageOfPage: initialData.products?.[0]?.image
       ? { "@type": "ImageObject", url: String(initialData.products[0].image) }

@@ -10,12 +10,12 @@ const currentYear = new Date().getFullYear();
  * - OG/Twitter
  */
 export const metadata = {
-  title: `Today's Top Deals in USA | Flash Sales & Price Drops ${currentYear} | PRICELAB`,
-  description: `Find today's best tech deals in the United States. PRICELAB monitors price drops in real time across major retailers, helping you compare offers, check availability, and save money. Updated for ${currentYear}.`,
+  title: `Today's Top Deals in USA | Flash Sales & Price Drops ${currentYear} | CompareFlow`,
+  description: `Find today's best tech deals in the United States. CompareFlow monitors price drops in real time across major retailers, helping you compare offers, check availability, and save money. Updated for ${currentYear}.`,
   alternates: {
-    canonical: "https://pricelab.tech/todays-deals",
+    canonical: "https://compareflow.club/todays-deals",
     languages: {
-      "en-US": "https://pricelab.tech/todays-deals",
+      "en-US": "https://compareflow.club/todays-deals",
     },
   },
   robots: {
@@ -30,17 +30,17 @@ export const metadata = {
     },
   },
   openGraph: {
-    title: `Today's Top Deals in USA | Flash Sales & Price Drops ${currentYear} | PRICELAB`,
+    title: `Today's Top Deals in USA | Flash Sales & Price Drops ${currentYear} | CompareFlow`,
     description:
       "Don't miss today's real price drops. Compare offers, see availability, and jump straight to official retailers.",
-    url: "https://pricelab.tech/todays-deals",
-    siteName: "PRICELAB",
+    url: "https://compareflow.club/todays-deals",
+    siteName: "CompareFlow",
     type: "website",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: `Today's Top Deals in USA | PRICELAB`,
+    title: `Today's Top Deals in USA | CompareFlow`,
     description: "Real-time deal feed for the US market. Verified price drops across major retailers.",
   },
 };
@@ -587,7 +587,7 @@ export default async function Page() {
    * - BreadcrumbList
    * - CollectionPage + ItemList of Products (each with Offer)
    */
-  const canonical = "https://pricelab.tech/todays-deals";
+  const canonical = "https://compareflow.club/todays-deals";
   const pageName = `Today's Top Deals in USA`;
   const pageDescription = `Live deal feed for the United States. Compare prices, check availability, and find real price drops across major retailers. Updated for ${currentYear}.`;
 
@@ -595,13 +595,13 @@ export default async function Page() {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: "https://pricelab.tech/" },
+      { "@type": "ListItem", position: 1, name: "Home", item: "https://compareflow.club/" },
       { "@type": "ListItem", position: 2, name: "Today's Deals", item: canonical },
     ],
   };
 
   const itemListElement = (initialDeals || []).slice(0, itemsPerPage).map((d, idx) => {
-    const productUrl = `https://pricelab.tech/product/${encodeURIComponent(d.slug)}`;
+    const productUrl = `https://compareflow.club/product/${encodeURIComponent(d.slug)}`;
     const brandName = safeBrandName(d.brand) || "Top Brands";
 
     const rawUpc = d.upc || null;
@@ -654,13 +654,13 @@ export default async function Page() {
     "@type": "CollectionPage",
     "@id": `${canonical}#collection`,
     url: canonical,
-    name: `${pageName} | PRICELAB`,
+    name: `${pageName} | CompareFlow`,
     description: pageDescription,
     inLanguage: "en-US",
     isPartOf: {
       "@type": "WebSite",
-      name: "PRICELAB",
-      url: "https://pricelab.tech/",
+      name: "CompareFlow",
+      url: "https://compareflow.club/",
     },
     audience: {
       "@type": "Audience",

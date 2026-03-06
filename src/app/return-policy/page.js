@@ -10,7 +10,7 @@ export default function ReturnPolicy() {
         <div className="space-y-8 text-white/90 leading-relaxed">
           <section>
             <p className="font-bold text-lg mb-4 text-white">
-              PRICELAB provides price comparison services and does not sell, handle, or ship products. 
+              CompareFlow provides price comparison services and does not sell, handle, or ship products. 
               Therefore, we do not process returns or issue refunds for any purchases.
             </p>
           </section>
@@ -20,7 +20,7 @@ export default function ReturnPolicy() {
               1. Merchant Return Policies
             </h2>
             <p>
-              When you purchase a product through a link on PRICELAB, the transaction happens directly on the retailer&apos;s website (e.g., Best Buy, Amazon, Walmart). 
+              When you purchase a product through a link on CompareFlow, the transaction happens directly on the retailer&apos;s website (e.g., Best Buy, Amazon, Walmart). 
               All returns, exchanges, and refund requests are subject to the specific return policy of the merchant where the item was bought. 
               We strongly recommend reviewing the retailer&apos;s return policy before finalizing your purchase.
             </p>
@@ -46,9 +46,9 @@ export default function ReturnPolicy() {
               3. Refund Process
             </h2>
             <p>
-              Refunds are processed by the merchant, not by PRICELAB. The time it takes to receive your money back 
+              Refunds are processed by the merchant, not by CompareFlow. The time it takes to receive your money back 
               depends on the retailer&apos;s processing times and your bank or credit card issuer. 
-              PRICELAB does not have access to financial transaction details and cannot intervene in refund disputes.
+              CompareFlow does not have access to financial transaction details and cannot intervene in refund disputes.
             </p>
           </section>
 
@@ -68,7 +68,7 @@ export default function ReturnPolicy() {
               5. Limitation of Liability
             </h2>
             <p>
-              PRICELAB shall not be held liable for any dissatisfaction with a merchant&apos;s 
+              CompareFlow shall not be held liable for any dissatisfaction with a merchant&apos;s 
               return process or for any losses incurred during a return or refund dispute. 
               Our role is strictly limited to providing price information and redirecting users to the respective stores.
             </p>

@@ -216,7 +216,7 @@ export async function generateMetadata({ params, searchParams }) {
   if (!product) return {};
 
   const officialSlug = product.slug;
-  const canonical = `https://www.pricelab.tech/product/${officialSlug}`;
+  const canonical = `https://www.compareflow.club/product/${officialSlug}`;
 
   // Pega qualquer oferta (mesmo sem estoque) para extrair imagem
   const referenceListing = (product.listings || []).find((l) => l.image) || (product.listings || [])[0];
@@ -236,7 +236,7 @@ export async function generateMetadata({ params, searchParams }) {
   const currentPrice = activeOffer ? normalizePrice(activeOffer.salePrice) : 0;
 
   const productName = safeText(product.name, 140) || "Product";
-  const title = `${productName} - Compare Prices in USA | PRICELAB`;
+  const title = `${productName} - Compare Prices in USA | CompareFlow`;
   const description = `Compare prices for ${productName} by ${cleanBrand} in the United States.${
     activeOffer && currentPrice > 0 ? ` Best available offer: $${currentPrice}.` : " Check availability across top US retailers."
   } Track price history and store availability in ${cleanCategory}.`;
@@ -258,7 +258,7 @@ export async function generateMetadata({ params, searchParams }) {
       type: "website",
       url: canonical,
       locale: "en_US",
-      siteName: "PRICELAB",
+      siteName: "CompareFlow",
       images: imageUrl
         ? [
             {
@@ -336,7 +336,7 @@ export default async function Page({ params, searchParams }) {
   if (!product) notFound();
 
   const officialSlug = product.slug;
-  const canonical = `https://www.pricelab.tech/product/${officialSlug}`;
+  const canonical = `https://www.compareflow.club/product/${officialSlug}`;
 
   // --- LÓGICA DE DADOS SEPARADA (Referência vs Ativas) ---
   const referenceListing =
@@ -456,7 +456,7 @@ export default async function Page({ params, searchParams }) {
 
   // ---------------- JSON-LD (PDP) ----------------
   const productName = safeText(finalProductData.name, 140) || "Product";
-  const brandName = safeBrandName(finalProductData.brand) || "PRICELAB";
+  const brandName = safeBrandName(finalProductData.brand) || "CompareFlow";
   const categoryName = safeText(finalProductData.internalCategory || "Electronics", 80) || "Electronics";
 
   const imageCandidates = [
@@ -487,7 +487,7 @@ export default async function Page({ params, searchParams }) {
     .map((off, index) => {
       const offerUrl =
         off.affiliateUrl ||
-        `https://www.pricelab.tech/product/${finalProductData.slug}#offer-${index + 1}`;
+        `https://www.compareflow.club/product/${finalProductData.slug}#offer-${index + 1}`;
 
       const sellerName = safeText(off.storeName, 60) || "Retailer";
       const price = normalizePrice(off.currentPrice);
@@ -532,7 +532,7 @@ export default async function Page({ params, searchParams }) {
   const productJsonLd = {
     "@context": "https://schema.org/",
     "@type": "Product",
-    "@id": `https://www.pricelab.tech/product/${finalProductData.slug}#product`,
+    "@id": `https://www.compareflow.club/product/${finalProductData.slug}#product`,
     name: productName,
     url: canonical,
     image: uniqueImages.length ? uniqueImages : undefined,
@@ -560,8 +560,8 @@ export default async function Page({ params, searchParams }) {
     inLanguage: "en-US",
     isPartOf: {
       "@type": "WebSite",
-      name: "PRICELAB",
-      url: "https://www.pricelab.tech/",
+      name: "CompareFlow",
+      url: "https://www.compareflow.club/",
     },
 
     offers: {
@@ -590,7 +590,7 @@ export default async function Page({ params, searchParams }) {
             "@type": "Review",
             itemReviewed: {
               "@type": "Product",
-              "@id": `https://www.pricelab.tech/product/${finalProductData.slug}#product`,
+              "@id": `https://www.compareflow.club/product/${finalProductData.slug}#product`,
             },
             reviewRating: {
               "@type": "Rating",
@@ -598,8 +598,8 @@ export default async function Page({ params, searchParams }) {
               bestRating: "10",
               worstRating: "1",
             },
-            author: { "@type": "Organization", name: "PRICELAB AI Insights" },
-            publisher: { "@type": "Organization", name: "PRICELAB" },
+            author: { "@type": "Organization", name: "CompareFlow AI Insights" },
+            publisher: { "@type": "Organization", name: "CompareFlow" },
             datePublished: finalProductData.expertLastUpdated
               ? new Date(finalProductData.expertLastUpdated).toISOString()
               : new Date().toISOString(),
@@ -621,13 +621,13 @@ export default async function Page({ params, searchParams }) {
         "@type": "ListItem",
         position: 1,
         name: "Home",
-        item: "https://www.pricelab.tech/",
+        item: "https://www.compareflow.club/",
       },
       {
         "@type": "ListItem",
         position: 2,
         name: "Categories",
-        item: "https://www.pricelab.tech/categories",
+        item: "https://www.compareflow.club/categories",
       },
       ...(finalProductData.internalCategory
         ? [
@@ -635,7 +635,7 @@ export default async function Page({ params, searchParams }) {
               "@type": "ListItem",
               position: 3,
               name: safeText(finalProductData.internalCategory, 80) || "Category",
-              item: `https://www.pricelab.tech/category/${encodeURIComponent(
+              item: `https://www.compareflow.club/category/${encodeURIComponent(
                 safeText(finalProductData.internalCategory, 200),
               )}`,
             },

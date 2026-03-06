@@ -8,7 +8,7 @@ export const dynamic = 'auto';
 
 /**
  * PÁGINA HOW IT WORKS - V25
- * Explica o funcionamento do PRICELAB e cumpre requisitos de transparência do Google.
+ * Explica o funcionamento do CompareFlow e cumpre requisitos de transparência do Google.
  * Removido o wrapper <Layout> pois agora utilizamos o Root Layout global.
  */
 export default async function HowItWorks() {

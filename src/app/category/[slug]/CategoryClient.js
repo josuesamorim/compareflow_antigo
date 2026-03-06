@@ -259,7 +259,7 @@ export default function CategoryPage({ initialSEOData, serverTotal }) {
             "@type": "Product",
             name: item.name,
             image: item.image,
-            url: `https://pricelab.tech/product/${item.slug}`,
+            url: `https://compareflow.club/product/${item.slug}`,
             offers: {
               "@type": "Offer",
               price: item.salePrice,

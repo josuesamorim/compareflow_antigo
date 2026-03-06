@@ -11,12 +11,12 @@ import { GoogleTagManager } from "@next/third-parties/google";
  */
 export const metadata = {
   title: {
-    default: "PRICELAB | Best Deals in USA",
-    template: "%s | PRICELAB",
+    default: "CompareFlow | Best Deals in USA",
+    template: "%s | CompareFlow",
   },
   description:
     "Monitor price drops across major retailers like Best Buy and eBay in real-time. Find the lowest prices on smartphones, TVs, and tech accessories.",
-  metadataBase: new URL("https://www.pricelab.tech"),
+  metadataBase: new URL("https://www.compareflow.club"),
   alternates: {
     canonical: "/",
     languages: {
@@ -36,38 +36,36 @@ export const metadata = {
   },
   // ✅ Favicon adicionado via Metadata API
   icons: {
-    icon: '/favicon.svg',
+    icon: "/favicon.svg",
   },
   openGraph: {
-    title: "PRICELAB | Best Deals in USA",
+    title: "CompareFlow | Best Deals in USA",
     description:
       "Monitor price drops across major retailers like Best Buy and eBay in real-time. Find the lowest prices on smartphones, TVs, and tech accessories.",
     url: "/",
-    siteName: "PRICELAB",
+    siteName: "CompareFlow",
     locale: "en_US",
     type: "website",
     images: [
       {
-        url: "/capa-pricelab.png",
+        url: "/capa.png",
         width: 1200,
         height: 630,
-        alt: "PRICELAB | Best Deals in USA",
+        alt: "CompareFlow | Best Deals in USA",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "PRICELAB | Best Deals in USA",
+    title: "CompareFlow | Best Deals in USA",
     description:
       "Monitor price drops across major retailers like Best Buy and eBay in real-time. Find the lowest prices on smartphones, TVs, and tech accessories.",
-    images: ["/capa-pricelab.png"],
+    images: ["/capa.png"],
   },
   verification: {
     google: "5B6jzxA3j90GUEuQro0cKSG0z3pQkuCnC210L7v-a2I",
   },
 };
-
-
 
 /**
  * ROOT LAYOUT V25
@@ -87,8 +85,16 @@ export default function RootLayout({ children }) {
       {gtmId && <GoogleTagManager gtmId={gtmId} />}
 
       <head>
-        <link rel="preconnect" href="https://pisces.bbystatic.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://i.ebayimg.com" crossOrigin="anonymous" />
+        <link
+          rel="preconnect"
+          href="https://pisces.bbystatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preconnect"
+          href="https://i.ebayimg.com"
+          crossOrigin="anonymous"
+        />
       </head>
 
       <body className="antialiased bg-slate-50 flex flex-col min-h-screen m-0 p-0 overflow-x-hidden selection:bg-[#ffdb00] selection:text-black">
@@ -96,7 +102,9 @@ export default function RootLayout({ children }) {
         <Header />
 
         {/* MAIN */}
-        <main className="flex-1 w-full relative min-h-[100dvh] flex flex-col">{children}</main>
+        <main className="flex-1 w-full relative min-h-[100dvh] flex flex-col">
+          {children}
+        </main>
 
         {/* Footer */}
         <Footer />

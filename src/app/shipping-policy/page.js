@@ -10,7 +10,7 @@ export default function ShippingPolicy() {
         <div className="space-y-8 text-white/90 leading-relaxed">
           <section>
             <p className="font-bold text-lg mb-4">
-              PRICELAB is a price comparison and deal-tracking platform. 
+              CompareFlow is a price comparison and deal-tracking platform. 
               We are not a retailer, and we do not sell or ship any products directly.
             </p>
           </section>
@@ -20,7 +20,7 @@ export default function ShippingPolicy() {
               1. Shipping Responsibility
             </h2>
             <p>
-              All products listed on PRICELAB are sold and fulfilled by third-party retailers (e.g., Best Buy, Amazon, etc.). 
+              All products listed on CompareFlow are sold and fulfilled by third-party retailers (e.g., Best Buy, Amazon, etc.). 
               When you click on a deal or a "View Deal" button, you are redirected to the merchant&apos;s official website to complete your purchase. 
               Therefore, the retailer is solely responsible for the shipping, delivery, and handling of your order.
             </p>
@@ -42,7 +42,7 @@ export default function ShippingPolicy() {
               3. Tracking Your Order
             </h2>
             <p>
-              Since PRICELAB does not process orders, we do not have access to your purchase history or tracking numbers. 
+              Since CompareFlow does not process orders, we do not have access to your purchase history or tracking numbers. 
               To track your shipment, please refer to the confirmation email sent by the retailer or log in to your 
               account on the retailer&apos;s website.
             </p>
@@ -54,7 +54,7 @@ export default function ShippingPolicy() {
             </h2>
             <p>
               The availability of international shipping depends on the specific retailer&apos;s policies. 
-              Most deals featured on PRICELAB are focused on the United States market unless otherwise stated.
+              Most deals featured on CompareFlow are focused on the United States market unless otherwise stated.
             </p>
           </section>
 
@@ -64,7 +64,7 @@ export default function ShippingPolicy() {
             </h2>
             <p>
               In the event of a delayed, lost, or damaged shipment, you must contact the customer support team of 
-              the retailer where the purchase was made. PRICELAB is not liable for any issues arising from the 
+              the retailer where the purchase was made. CompareFlow is not liable for any issues arising from the 
               transportation or delivery of products.
             </p>
           </section>

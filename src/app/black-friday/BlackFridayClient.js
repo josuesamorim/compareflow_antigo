@@ -116,7 +116,7 @@ export default function BlackFridayClient() {
               <Link
                 href="/"
                 className="bg-white/5 border border-white/10 text-white font-black uppercase px-8 py-3 rounded-2xl hover:bg-white hover:text-black transition-all"
-                aria-label="Go back to PRICELAB home"
+                aria-label="Go back to CompareFlow home"
               >
                 Back to Home
               </Link>
@@ -184,7 +184,7 @@ export default function BlackFridayClient() {
             <div className="prose prose-invert prose-sm max-w-none text-slate-400">
               <p className="mb-4 text-center leading-relaxed">
                 The hunt for the best <strong>Black Friday {currentYear} deals</strong> starts early — but most “discounts”
-                are noise. PRICELAB tracks real listings, compares against historical prices, and surfaces verified drops
+                are noise. CompareFlow tracks real listings, compares against historical prices, and surfaces verified drops
                 from major US retailers.
               </p>
 

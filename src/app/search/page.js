@@ -14,24 +14,24 @@ export async function generateMetadata({ searchParams }) {
   const category = sParams.category || "";
   
   const title = query 
-    ? `Search results for "${query}" | PRICELAB` 
+    ? `Search results for "${query}" | CompareFlow` 
     : category 
-      ? `Category: ${category.replace(/-/g, ' ')} | PRICELAB` 
-      : "Search Products | PRICELAB";
+      ? `Category: ${category.replace(/-/g, ' ')} | CompareFlow` 
+      : "Search Products | CompareFlow";
 
-  const description = `Find the best prices and deals for ${query || category || 'products'} on PRICELAB. Real-time price tracking.`;
+  const description = `Find the best prices and deals for ${query || category || 'products'} on CompareFlow. Real-time price tracking.`;
 
   return {
     title,
     description,
     alternates: {
-      canonical: 'https://pricelab.tech/search',
+      canonical: 'https://CompareFlow.club/search',
     },
     openGraph: {
       title,
       description,
       type: 'website',
-      url: 'https://pricelab.tech/search',
+      url: 'https://CompareFlow.club/search',
     },
     twitter: {
       card: 'summary_large_image',

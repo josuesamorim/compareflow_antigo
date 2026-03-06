@@ -20,7 +20,7 @@ export default async function Contact() {
   return (
     <div className="bg-slate-50 min-h-screen flex flex-col items-center justify-center">
       <div className="max-w-3xl mx-auto py-20 px-6 text-center">
-        {/* Título com Identidade Visual PRICELAB */}
+        {/* Título com Identidade Visual CompareFlow */}
         <h1 className="text-4xl md:text-6xl font-black italic uppercase mb-4 text-gray-900 tracking-tighter">
           Contact <span className="text-blue-700">Us</span>
         </h1>
@@ -39,10 +39,10 @@ export default async function Contact() {
           
           {/* Link de e-mail com tratamento para mobile (break-all) */}
           <a 
-            href="mailto:pricelab.tech@gmail.com" 
+            href="mailto:hello@compareflow.club" 
             className="block w-full text-center text-xl md:text-4xl font-black text-[#ffdb00] hover:text-white transition-all duration-300 break-all md:break-normal relative z-10 italic"
           >
-            pricelab.tech@gmail.com
+            hello@compareflow.club
           </a>
 
           <div className="mt-12 pt-10 border-t border-white/10 flex flex-col md:flex-row justify-center gap-10 md:gap-16 w-full relative z-10">

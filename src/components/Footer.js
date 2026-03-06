@@ -50,14 +50,14 @@ export default function Footer({ seoCategory, seoProduct }) {
         <div className="space-y-3">
           <span className="text-[10px] font-black text-white uppercase tracking-[0.3em]">Affiliate Disclosure</span>
           <p className="text-[12px] md:text-[13px] text-white/90 leading-relaxed max-w-4xl mx-auto italic">
-            PRICELAB is a price comparison engine. We are a participant in affiliate advertising programs and we may earn a commission when you click on links to retailers and make a purchase, at no extra cost to you. We do not sell products directly.
+            CompareFlow is a price comparison engine. We are a participant in affiliate advertising programs and we may earn a commission when you click on links to retailers and make a purchase, at no extra cost to you. We do not sell products directly.
           </p>
         </div>
 
         <div className="space-y-3">
           <span className="text-[10px] font-black text-white uppercase tracking-[0.3em]">Legal Notice</span>
           <p className="text-[10px] md:text-[11px] text-white leading-relaxed max-w-3xl mx-auto uppercase tracking-wide">
-            PRICELAB is an independent entity and is not owned, operated, or endorsed by the retailers we track. We believe in total transparency, which is why our business identity, physical location, and contact information are always available to our users and partners.
+            CompareFlow is an independent entity and is not owned, operated, or endorsed by the retailers we track. We believe in total transparency, which is why our business identity, physical location, and contact information are always available to our users and partners.
           </p>
           <p className="text-[10px] md:text-[11px] text-white uppercase tracking-wide">
             Use of this website is subject to our{" "}
@@ -69,7 +69,7 @@ export default function Footer({ seoCategory, seoProduct }) {
 
         <div className="pt-6 border-t border-gray-800/50 space-y-4">
           <div className="text-[11px] font-black tracking-[0.5em] text-white uppercase italic">
-            © {currentYear} PRICELAB.TECH
+            © {currentYear} compareflow.club
           </div>
           
           {/* INFORMAÇÕES DE CONTATO E ENDEREÇO OBRIGATÓRIAS PARA O GOOGLE - Também com data-nosnippet */}

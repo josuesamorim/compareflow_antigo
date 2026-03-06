@@ -17,7 +17,7 @@ export default function ExpertReviewAI({ review, score }) {
     <section className="mt-8 md:mt-12 mb-10 md:mb-24 animate-in fade-in slide-in-from-bottom-6 duration-1000">
       <div className="w-full max-w-none mx-0 px-0 md:max-w-5xl md:mx-auto md:px-0">
         
-        {/* Header - Identidade PRICELAB */}
+        {/* Header - Identidade CompareFlow */}
         <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
           <div className="shrink-0 shadow-lg shadow-yellow-400/20 rounded-lg overflow-hidden">
             <svg width="36" height="36" className="md:w-[42px] md:h-[42px]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -27,7 +27,7 @@ export default function ExpertReviewAI({ review, score }) {
           </div>
           <div className="flex flex-col">
             <h2 className="text-[12px] md:text-lg font-black uppercase tracking-tight text-gray-900 leading-none">
-              PRICELAB AI INSIGHTS
+              CompareFlow AI INSIGHTS
             </h2>
             <div className="flex items-center gap-2 mt-1">
               <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse"></span>
@@ -156,7 +156,7 @@ export default function ExpertReviewAI({ review, score }) {
                 <div className="mt-6 md:mt-10 border-t border-white/5 w-full">
                   <p className="pt-4 text-[8px] md:text-[10px] text-white/30 italic leading-tight">
                     <span className="font-black uppercase tracking-widest not-italic mr-2 text-white/40">AI-Powered Insights:</span>
-                    This analysis is synthesized by PRICELAB’s proprietary algorithm. It processes technical datasets, verified specifications, and real-time market trends to provide an objective score.
+                    This analysis is synthesized by CompareFlow’s proprietary algorithm. It processes technical datasets, verified specifications, and real-time market trends to provide an objective score.
                   </p>
                 </div>
               </div>

@@ -125,8 +125,8 @@ function categoryDisplayName(cat) {
 
 function categoryCanonical(cat) {
   const c = (cat ?? "").toString().trim();
-  if (!c) return "https://pricelab.tech/";
-  return `https://pricelab.tech/category/${encodeURIComponent(c)}`;
+  if (!c) return "https://compareflow.club/";
+  return `https://compareflow.club/category/${encodeURIComponent(c)}`;
 }
 
 export default async function Page() {
@@ -428,8 +428,8 @@ export default async function Page() {
    * Obs: Home não deve tentar fazer ProductSnippet completo pra tudo; é melhor
    * deixar isso para Category/PDP. Aqui a gente lista poucos destaques.
    */
-  const siteUrl = "https://pricelab.tech/";
-  const homeUrl = "https://pricelab.tech/";
+  const siteUrl = "https://compareflow.club/";
+  const homeUrl = "https://compareflow.club/";
   const nowIso = new Date().toISOString();
 
   // ✅ FIX: você não tem initialData.kitchen; mantém só o que existe (sem inventar)
@@ -440,7 +440,7 @@ export default async function Page() {
   ].slice(0, 12);
 
   const featuredItemList = featured.map((p, idx) => {
-    const productUrl = `https://pricelab.tech/product/${encodeURIComponent(p.slug)}`;
+    const productUrl = `https://compareflow.club/product/${encodeURIComponent(p.slug)}`;
     const brandName = safeBrandName(p.brand) || "Top Brands";
 
     // ✅ UPC/GTIN: só inclui se checksum válido (12/13/14)
@@ -499,7 +499,7 @@ export default async function Page() {
     "@type": "WebSite",
     "@id": `${siteUrl}#website`,
     url: siteUrl,
-    name: "PRICELAB Best Deals in USA",
+    name: "compareflow Best Deals in USA",
     inLanguage: "en-US",
     audience: {
       "@type": "Audience",
@@ -512,7 +512,7 @@ export default async function Page() {
       "@type": "SearchAction",
       target: {
         "@type": "EntryPoint",
-        urlTemplate: "https://pricelab.tech/search?q={search_term_string}",
+        urlTemplate: "https://compareflow.club/search?q={search_term_string}",
       },
       "query-input": "required name=search_term_string",
     },
@@ -523,9 +523,9 @@ export default async function Page() {
     "@type": "WebPage",
     "@id": `${homeUrl}#webpage`,
     url: homeUrl,
-    name: "PRICELAB Best Deals in USA",
+    name: "compareflow Best Deals in USA",
     description:
-      "Compare prices across top US retailers. Track verified price history, see live availability, and find the best deal today with PRICELAB.",
+      "Compare prices across top US retailers. Track verified price history, see live availability, and find the best deal today with compareflow.",
     inLanguage: "en-US",
     dateModified: nowIso,
     isPartOf: {

@@ -10,7 +10,7 @@ export default function PrivacyPolicy() {
         <div className="space-y-8 text-white/90 leading-relaxed">
           <section>
             <p className="font-bold text-lg mb-4 text-white">
-              At PRICELAB we value your privacy. This policy explains how we collect, use, and protect your information when you visit pricelab.tech.
+              At CompareFlow we value your privacy. This policy explains how we collect, use, and protect your information when you visit compareflow.club.
             </p>
           </section>
 
@@ -46,7 +46,7 @@ export default function PrivacyPolicy() {
               3. Affiliate and Third-Party Links
             </h2>
             <p>
-              PRICELAB contains links to external retailers. Please be aware that once you click on a link and leave our site, you are subject to the privacy policy of the merchant (e.g., Best Buy, Amazon). We do not have control over how third-party sites collect or use your personal data or financial information.
+              CompareFlow contains links to external retailers. Please be aware that once you click on a link and leave our site, you are subject to the privacy policy of the merchant (e.g., Best Buy, Amazon). We do not have control over how third-party sites collect or use your personal data or financial information.
             </p>
           </section>
 
@@ -82,11 +82,11 @@ export default function PrivacyPolicy() {
               Last Updated: February 2026
             </p>
             <p className="text-sm text-white font-bold mt-4">
-              PRICELAB.TECH
+              compareflow.club
             </p>
             
             <p className="text-sm text-[#ffdb00] mt-1 font-bold">
-              Email: pricelab.tech@gmail.com
+              Email: hello@compareflow.club
             </p>
           </div>
         </div>

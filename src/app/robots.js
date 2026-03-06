@@ -14,6 +14,6 @@ export default function robots() {
         '/search',     // Se você tiver uma página de busca, não precisa indexar
       ],
     },
-    sitemap: 'https://pricelab.tech/sitemap.xml',
+    sitemap: 'https://compareflow.club/sitemap.xml',
   };
 }

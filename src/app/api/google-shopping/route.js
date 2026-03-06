@@ -23,7 +23,7 @@ export async function GET(request) {
     );
   }
 
-  const baseUrl = "https://www.pricelab.tech";
+  const baseUrl = "https://www.compareflow.club";
   
 
   try {
@@ -85,7 +85,7 @@ export async function GET(request) {
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">
   <channel>
-    <title>PRICELAB Product Feed - USD (US)</title>
+    <title>CompareFlow Product Feed - USD (US)</title>
     <link>${escapeXml(baseUrl)}</link>
     <description>${escapeXml("Price comparison feed based on live retailer offers (in-stock).")}</description>
     <language>en-us</language>`;
