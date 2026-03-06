@@ -11,7 +11,7 @@ export default function Footer({ seoCategory, seoProduct }) {
         {/* Branding - Ocupa as 2 colunas no mobile para ficar centralizado no topo */}
         <div className="col-span-2 md:col-span-1 space-y-4 flex flex-col items-center">
           <div className="text-xl md:text-2xl font-black italic text-white tracking-tighter">
-            PRICE<span className="text-[#ffdb00] font-black">LAB</span>
+            COMPARE<span className="text-[#ffdb00] font-black">FLOW</span>
           </div>
           <p className="text-[10px] md:text-xs leading-relaxed max-w-xs text-white uppercase font-bold tracking-tight">
             The ultimate destination for real-time price tracking across the biggest retailers in the USA.

@@ -65,9 +65,9 @@ export default function Header() {
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
               </svg>
               <span className="[text-shadow:1px_1px_2px_rgba(0,0,0,0.4)]">
-                PRICE
+                COMPARE
                 <span className="text-white">
-                  LAB
+                  FLOW
                 </span>
               </span>
             </Link>
