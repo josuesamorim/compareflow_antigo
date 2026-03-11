@@ -90,7 +90,7 @@ export default function HomeClient({ initialData }) {
               </h1>
               
               <p className="text-slate-400 text-sm md:text-base font-medium max-w-md mx-auto lg:mx-0 uppercase leading-snug mb-8">
-                We monitor price drops across major retailers like Best Buy and eBay, alerting you to the most aggressive discounts in real-time.
+                We monitor price drops across major retailers like Amazon, Best Buy, and eBay, alerting you to the most aggressive discounts in real-time.
               </p>
 
               <Link href="/todays-deals" 
