@@ -80,7 +80,7 @@ export default function OfferComparisonList({ offers, productName }) {
           text: 'text-[#ff9900]', 
           label: 'AZ', 
           border: 'border-slate-200', 
-          logo: '/logos/amazon.png' 
+          logo: '/logos/amazon.webp' 
         };
     }
     
