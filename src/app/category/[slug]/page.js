@@ -104,7 +104,7 @@ function normalizeConditionToSchemaUrl(cond) {
 
 /**
  * SEO: GERAÇÃO DINÂMICA DE METADADOS (melhorado)
- * ✅ Título ajustado para: "CompareFlow Best Deals in USA ..."
+ * ✅ Título ajustado para: "COMPAREFLOW Best Deals in USA ..."
  */
 export async function generateMetadata({ params }) {
   const p = await params;
@@ -114,10 +114,10 @@ export async function generateMetadata({ params }) {
   // Ex.: "gaming-consoles" -> "Gaming Consoles"
   const categoryName = toTitleCase(decodedSlug.replace(/-/g, " "));
 
-  const canonical = `https://compareflow.club/category/${decodedSlug}`;
+  const canonical = `https://www.compareflow.club/category/${decodedSlug}`;
 
-  const title = `CompareFlow Best Deals in USA — ${categoryName} Price Comparison`;
-  const description = `Compare ${categoryName} prices across top US retailers. Track live deals, see availability, and find the best price today with CompareFlow.`;
+  const title = `COMPAREFLOW Best Deals in USA — ${categoryName} Price Comparison`;
+  const description = `Compare ${categoryName} prices across top US retailers. Track live deals, see availability, and find the best price today with COMPAREFLOW.`;
 
   return {
     title,
@@ -129,16 +129,16 @@ export async function generateMetadata({ params }) {
       },
     },
     openGraph: {
-      title: `CompareFlow Best Deals in USA — ${categoryName}`,
+      title: `COMPAREFLOW Best Deals in USA — ${categoryName}`,
       description,
       type: "website",
       url: canonical,
       locale: "en_US",
-      siteName: "CompareFlow",
+      siteName: "COMPAREFLOW",
     },
     twitter: {
       card: "summary_large_image",
-      title: `CompareFlow Best Deals in USA — ${categoryName}`,
+      title: `COMPAREFLOW Best Deals in USA — ${categoryName}`,
       description,
     },
     robots: {
@@ -280,9 +280,17 @@ export default async function Page({ params }) {
 
     const totalCount = totalCountResult[0]?.count || 0;
 
+    // DTO Explícito substituindo o `...p2` para cortar o vazamento do ID e do SKU
     initialData = {
       products: JSON.parse(JSON.stringify(rawProducts)).map((p2) => ({
-        ...p2,
+        name: p2.name,
+        image: p2.image,
+        slug: p2.slug,
+        brand: p2.brand,
+        upc: p2.upc,
+        condition: p2.condition,
+        store: p2.store,
+        internalCategory: p2.internalCategory,
         salePrice: Number(p2.salePrice),
         regularPrice: Number(p2.regularPrice),
         onlineAvailability: Boolean(p2.onlineAvailability),
@@ -303,12 +311,12 @@ export default async function Page({ params }) {
    * - BreadcrumbList
    */
   const categoryName = toTitleCase(decodedSlug.replace(/-/g, " "));
-  const canonical = `https://compareflow.club/category/${decodedSlug}`;
-  const siteName = "CompareFlow";
+  const canonical = `https://www.compareflow.club/category/${decodedSlug}`;
+  const siteName = "COMPAREFLOW";
   const nowIso = new Date().toISOString();
 
   const itemListElement = (initialData.products || []).slice(0, 24).map((p3, idx) => {
-    const productUrl = `https://compareflow.club/product/${p3.slug}`;
+    const productUrl = `https://www.compareflow.club/product/${p3.slug}`;
     const brandName = safeBrandName(p3.brand) || "Top Brands";
 
     const rawUpc = p3.upc || null;
@@ -375,13 +383,13 @@ export default async function Page({ params }) {
         "@type": "ListItem",
         position: 1,
         name: "Home",
-        item: "https://compareflow.club/",
+        item: "https://www.compareflow.club/",
       },
       {
         "@type": "ListItem",
         position: 2,
         name: "Categories",
-        item: "https://compareflow.club/categories",
+        item: "https://www.compareflow.club/categories",
       },
       {
         "@type": "ListItem",
@@ -397,13 +405,13 @@ export default async function Page({ params }) {
     "@type": "CollectionPage",
     "@id": `${canonical}#collection`,
     url: canonical,
-    name: `CompareFlow Best Deals in USA — ${categoryName} Price Comparison`,
+    name: `COMPAREFLOW Best Deals in USA — ${categoryName} Price Comparison`,
     description: `Compare ${categoryName} prices across top US retailers. Live availability and verified pricing.`,
     inLanguage: "en-US",
     isPartOf: {
       "@type": "WebSite",
       name: siteName,
-      url: "https://compareflow.club/",
+      url: "https://www.compareflow.club/",
     },
     primaryImageOfPage: initialData.products?.[0]?.image
       ? { "@type": "ImageObject", url: String(initialData.products[0].image) }

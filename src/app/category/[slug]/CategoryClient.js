@@ -259,7 +259,7 @@ export default function CategoryPage({ initialSEOData, serverTotal }) {
             "@type": "Product",
             name: item.name,
             image: item.image,
-            url: `https://compareflow.club/product/${item.slug}`,
+            url: `https://www.compareflow.club/product/${item.slug}`,
             offers: {
               "@type": "Offer",
               price: item.salePrice,
@@ -355,7 +355,7 @@ export default function CategoryPage({ initialSEOData, serverTotal }) {
               >
                 {products.length > 0 ? (
                   products.map((p, index) => (
-                    <ProductCatalogCard key={p.id ? `p-${p.id}` : `s-${p.sku}`} product={p} priority={index < 4} />
+                    <ProductCatalogCard key={p.slug ? `${p.slug}-${index}` : `prod-${index}`} product={p} priority={index < 4} />
                   ))
                 ) : loading ? (
                   [...Array(6)].map((_, i) => (

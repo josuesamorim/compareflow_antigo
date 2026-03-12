@@ -23,7 +23,6 @@ export default function DealsClient({ initialData = [], initialTotalPages = 1 })
       
       return {
         ...product,
-        id: product.id?.toString() || product.product_id?.toString() || product.sku,
         salePrice: sale,
         regularPrice: regular,
         discountPercent: discountPercent,
@@ -166,8 +165,8 @@ export default function DealsClient({ initialData = [], initialTotalPages = 1 })
         ) : (
           <>
             <div className={`grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 transition-opacity duration-300 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-              {deals.map((deal) => (
-                <article key={deal.id} className="group relative bg-white rounded-2xl md:rounded-[2.5rem] border border-slate-100 shadow-xl transition-all hover:border-[#ffdb00] flex flex-col overflow-hidden">
+              {deals.map((deal, index) => (
+                <article key={deal.slug ? `${deal.slug}-${index}` : `deal-${index}`} className="group relative bg-white rounded-2xl md:rounded-[2.5rem] border border-slate-100 shadow-xl transition-all hover:border-[#ffdb00] flex flex-col overflow-hidden">
                   <Link href={`/product/${deal.slug}`} className="p-3 md:p-5 flex-1 flex flex-col">
                     <div className="relative aspect-square bg-white rounded-xl md:rounded-[2rem] overflow-hidden mb-4 border border-slate-50 p-4">
                       <img 

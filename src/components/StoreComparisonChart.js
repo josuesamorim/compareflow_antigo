@@ -1,18 +1,15 @@
-// StoreComparisonChart.js
-
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 
-// Importação dinâmica para evitar erros de Hidratação/SSR no Next.js
+// Importação dinâmica para evitar erros de hidratação/SSR no Next.js
 const Chart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
   loading: () => <div className="h-[300px] w-full bg-slate-50 animate-pulse rounded-[2.5rem]" />,
 });
 
-// Normaliza condições vindas do backend (new/open_box/refurbished/used etc)
-// e também tolera variações antigas (Open Box, Certified Refurbished, etc)
+// Normaliza condições vindas do backend
 const normalizeCondition = (condition) => {
   const raw = (condition ?? "").toString().trim();
   if (!raw) return "NEW";
@@ -22,11 +19,14 @@ const normalizeCondition = (condition) => {
   if (c === "new" || c === "brand new" || c === "novo") return "NEW";
   if (c.includes("open box") || c.includes("open-box") || c.includes("openbox")) return "OPEN_BOX";
   if (c.includes("open_box")) return "OPEN_BOX";
-  if (c.includes("refurb") || c.includes("reconditioned") || c.includes("certified")) return "REFURBISHED";
+  if (c.includes("refurb") || c.includes("reconditioned") || c.includes("certified") || c.includes("renewed")) {
+    return "REFURBISHED";
+  }
   if (c.includes("refurbished")) return "REFURBISHED";
-  if (c.includes("used") || c.includes("pre-owned") || c.includes("preowned") || c.includes("seminovo")) return "USED";
+  if (c.includes("used") || c.includes("pre-owned") || c.includes("preowned") || c.includes("seminovo")) {
+    return "USED";
+  }
 
-  // Se vier qualquer outra string, transforma em um label estável
   return c.replace(/\s+/g, "_").replace(/[^\w_]/g, "").toUpperCase();
 };
 
@@ -37,6 +37,7 @@ const prettyConditionLabel = (cond) => {
   if (c === "OPEN_BOX") return "Open Box";
   if (c === "REFURBISHED") return "Refurbished";
   if (c === "USED") return "Used";
+
   return c
     .toLowerCase()
     .split("_")
@@ -44,60 +45,75 @@ const prettyConditionLabel = (cond) => {
     .join(" ");
 };
 
-// Extrai condição de vários formatos possíveis:
-// - novo backend pode não mandar no histórico -> inferimos via offer/listing/rawDetails
-// - se tiver item.condition, usamos diretamente
+// Extrai condição de vários formatos possíveis
 const extractConditionFromHistoryItem = (item) => {
   if (!item || typeof item !== "object") return "NEW";
 
-  // 1) Se já vier explícito no history
   if (item.condition != null) return normalizeCondition(item.condition);
+  if (item.listing?.condition != null) return normalizeCondition(item.listing.condition);
+  if (item.offer?.condition != null) return normalizeCondition(item.offer.condition);
 
-  // 2) Alguns formatos antigos podem guardar em "listing.condition"
-  if (item.listing && item.listing.condition != null) return normalizeCondition(item.listing.condition);
-
-  // 3) Se vier com offer/listingId e você já juntou isso no client (opcional)
-  if (item.offer && item.offer.condition != null) return normalizeCondition(item.offer.condition);
-
-  // 4) Se vier rawDetails (raríssimo em histórico), tenta achar
   if (item.rawDetails) {
     if (item.rawDetails.condition != null) return normalizeCondition(item.rawDetails.condition);
-    if (item.rawDetails.bby && item.rawDetails.bby.condition != null)
-      return normalizeCondition(item.rawDetails.bby.condition);
+    if (item.rawDetails.bby?.condition != null) return normalizeCondition(item.rawDetails.bby.condition);
   }
 
-  // fallback
   return "NEW";
+};
+
+const getStoreName = (item) =>
+  item?.store || item?.storeName || item?.listing?.store || item?.offer?.storeName || "Retailer";
+
+const getRawDate = (item) =>
+  item?.date || item?.capturedAt || item?.captured_at || item?.createdAt || item?.created_at || null;
+
+const getNumericPrice = (item) => {
+  const price = Number(item?.price);
+  return Number.isFinite(price) && price > 0 ? price : null;
 };
 
 export default function StoreComparisonChart({ history }) {
   const [days, setDays] = useState(30);
   const [viewMode, setViewMode] = useState("all_stores");
   const [isMounted, setIsMounted] = useState(false);
+  const [activeCondition, setActiveCondition] = useState("NEW");
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  /**
-   * ✅ MUITO IMPORTANTE (compatível com a mudança do backend):
-   * Agora as condições ficam separadas nas OFFERS (store+condition).
-   * Mas seu "history" pode vir sem condition, então este componente:
-   * - Lê item.condition se existir
-   * - Senão tenta inferir de campos alternativos
-   * - E, se mesmo assim não existir, assume NEW
-   */
-
-  // 1. Extração de Condições Disponíveis
   const CONDITION_ORDER = ["NEW", "OPEN_BOX", "REFURBISHED", "USED"];
 
+  const normalizedHistory = useMemo(() => {
+    if (!Array.isArray(history)) return [];
+
+    return history
+      .map((item) => {
+        const rawDate = getRawDate(item);
+        const dateObj = rawDate ? new Date(rawDate) : null;
+        const price = getNumericPrice(item);
+
+        if (!dateObj || Number.isNaN(dateObj.getTime()) || price == null) return null;
+
+        return {
+          ...item,
+          __condition: extractConditionFromHistoryItem(item),
+          __store: getStoreName(item),
+          __price: price,
+          __dateObj: dateObj,
+          __dateKey: dateObj.toISOString().split("T")[0],
+          __timestamp: new Date(`${dateObj.toISOString().split("T")[0]}T00:00:00.000Z`).getTime(),
+        };
+      })
+      .filter(Boolean);
+  }, [history]);
+
   const availableConditions = useMemo(() => {
-    if (!history || !Array.isArray(history) || history.length === 0) return ["NEW"];
+    if (normalizedHistory.length === 0) return ["NEW"];
 
-    const conds = history.map((item) => extractConditionFromHistoryItem(item));
-    const unique = [...new Set(conds)].filter(Boolean);
+    const unique = [...new Set(normalizedHistory.map((item) => item.__condition))].filter(Boolean);
 
-    const sorted = unique.sort((a, b) => {
+    unique.sort((a, b) => {
       const ia = CONDITION_ORDER.indexOf(a);
       const ib = CONDITION_ORDER.indexOf(b);
       const ra = ia === -1 ? 999 : ia;
@@ -105,33 +121,30 @@ export default function StoreComparisonChart({ history }) {
       return ra - rb || a.localeCompare(b);
     });
 
-    return sorted.length > 0 ? sorted : ["NEW"];
-  }, [history]);
-
-  const [activeCondition, setActiveCondition] = useState("NEW");
+    return unique.length > 0 ? unique : ["NEW"];
+  }, [normalizedHistory]);
 
   useEffect(() => {
     if (availableConditions.length > 0 && !availableConditions.includes(activeCondition)) {
       setActiveCondition(availableConditions[0]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableConditions]);
+  }, [availableConditions, activeCondition]);
 
-  // 2. Filtro por Condição Ativa
   const historyByCondition = useMemo(() => {
-    if (!history || !Array.isArray(history)) return [];
-    return history.filter((item) => extractConditionFromHistoryItem(item) === activeCondition);
-  }, [history, activeCondition]);
+    return normalizedHistory.filter((item) => item.__condition === activeCondition);
+  }, [normalizedHistory, activeCondition]);
 
-  // 3. Extração das Lojas Disponíveis para esta Condição
   const availableStores = useMemo(() => {
-    const stores = historyByCondition
-      .map((item) => item.store || (item.listing && item.listing.store))
-      .filter(Boolean);
+    const stores = historyByCondition.map((item) => item.__store).filter(Boolean);
     return [...new Set(stores)];
   }, [historyByCondition]);
 
-  // 4. Processamento Robusto de Dados (Mapeamento de Linha do Tempo)
+  useEffect(() => {
+    if (viewMode !== "all_stores" && !availableStores.includes(viewMode)) {
+      setViewMode("all_stores");
+    }
+  }, [availableStores, viewMode]);
+
   const processedData = useMemo(() => {
     if (historyByCondition.length === 0) {
       return {
@@ -146,38 +159,29 @@ export default function StoreComparisonChart({ history }) {
     }
 
     const dailyMap = {};
-    const allDates = new Set();
     const now = new Date();
 
-    // Organiza todos os preços por data e loja
     historyByCondition.forEach((item) => {
-      const rawDate = item.date || item.capturedAt || item.captured_at || item.createdAt || item.created_at;
+      const dateKey = item.__dateKey;
+      const storeName = item.__store;
+      const price = item.__price;
 
-      const storeName = item.store || (item.listing && item.listing.store) || "Retailer";
-
-      const d = new Date(rawDate);
-      if (isNaN(d.getTime())) return;
-
-      // Normaliza para dia (UTC) para evitar "pular" data por timezone
-      const dateKey = d.toISOString().split("T")[0];
-      allDates.add(dateKey);
+      if (!dateKey || !storeName || !Number.isFinite(price) || price <= 0) return;
 
       if (!dailyMap[dateKey]) {
         dailyMap[dateKey] = { stores: {} };
       }
 
-      const price = Number(item.price);
-      if (!Number.isFinite(price) || price <= 0) return;
-
-      // Mantém sempre o menor preço daquela loja naquele dia específico
-      if (!dailyMap[dateKey].stores[storeName] || price < dailyMap[dateKey].stores[storeName]) {
+      if (
+        dailyMap[dateKey].stores[storeName] == null ||
+        price < dailyMap[dateKey].stores[storeName]
+      ) {
         dailyMap[dateKey].stores[storeName] = price;
       }
     });
 
-    const sortedDateKeys = Array.from(allDates).sort((a, b) => new Date(a) - new Date(b));
+    const sortedDateKeys = Object.keys(dailyMap).sort((a, b) => new Date(a) - new Date(b));
 
-    // Se por algum motivo não ficou nenhuma data válida
     if (sortedDateKeys.length === 0) {
       return {
         categories: [],
@@ -190,16 +194,14 @@ export default function StoreComparisonChart({ history }) {
       };
     }
 
-    // Filtra as datas pelo seletor (7D, 30D, 90D)
     const filteredDateKeys = sortedDateKeys.filter((dateKey) => {
       if (days === "all") return true;
-      const diff = (now - new Date(dateKey)) / (1000 * 60 * 60 * 24);
+      const diff = (now - new Date(`${dateKey}T00:00:00.000Z`)) / (1000 * 60 * 60 * 24);
       return diff <= Number(days) + 1;
     });
 
     const finalDateKeys = filteredDateKeys.length > 0 ? filteredDateKeys : sortedDateKeys;
 
-    // Constrói labels e timestamps (para datetime)
     const categories = finalDateKeys.map((key) => {
       const d = new Date(`${key}T00:00:00.000Z`);
       return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
@@ -207,16 +209,14 @@ export default function StoreComparisonChart({ history }) {
 
     const timestamps = finalDateKeys.map((key) => new Date(`${key}T00:00:00.000Z`).getTime());
 
-    // Identifica qual loja é a melhor para cada dia
     const bestStoreNames = [];
     const bestPrices = finalDateKeys.map((key) => {
-      const day = dailyMap[key];
-      const storesInDay = (day && day.stores) || {};
+      const storesInDay = dailyMap[key]?.stores || {};
       let minPrice = Infinity;
       let winningStore = "Retailer";
 
       Object.entries(storesInDay).forEach(([name, price]) => {
-        if (price < minPrice) {
+        if (Number.isFinite(price) && price < minPrice) {
           minPrice = price;
           winningStore = name;
         }
@@ -226,38 +226,21 @@ export default function StoreComparisonChart({ history }) {
       return minPrice === Infinity ? null : minPrice;
     });
 
-    // Store data por dia (mantém compat com seu estado/legenda)
     const storeData = {};
     availableStores.forEach((store) => {
       storeData[store] = finalDateKeys.map((key) => {
-        const day = dailyMap[key];
-        return day && day.stores && day.stores[store] != null ? day.stores[store] : null;
+        const val = dailyMap[key]?.stores?.[store];
+        return Number.isFinite(val) ? val : null;
       });
     });
 
-    /**
-     * ✅ CORREÇÃO PRINCIPAL:
-     * Para evitar que o ApexCharts "quebre" linhas em gaps grandes com xaxis categories,
-     * geramos séries XY (datetime) com pontos reais (sem preencher nulos).
-     *
-     * - bestSeriesXY: [{ x, y }, ...] (mantém nulls como gaps visuais)
-     * - storeSeriesXY[store]: [{ x, y }, ...] só com dias que tiveram preço
-     *
-     * Observação: Mantemos também arrays antigos (bestPrice/storeData) para não quebrar nada seu.
-     */
-    const bestSeriesXY = finalDateKeys.map((key) => {
-      const x = new Date(`${key}T00:00:00.000Z`).getTime();
-      const y = (() => {
-        const day = dailyMap[key];
-        const storesInDay = (day && day.stores) || {};
-        let min = Infinity;
-        Object.values(storesInDay).forEach((p) => {
-          if (typeof p === "number" && Number.isFinite(p) && p > 0 && p < min) min = p;
-        });
-        return min === Infinity ? null : min;
-      })();
-      return { x, y };
-    });
+    const bestSeriesXY = finalDateKeys
+      .map((key) => {
+        const x = new Date(`${key}T00:00:00.000Z`).getTime();
+        const y = bestPrices[finalDateKeys.indexOf(key)];
+        return Number.isFinite(x) ? { x, y } : null;
+      })
+      .filter(Boolean);
 
     const storeSeriesXY = {};
     availableStores.forEach((store) => {
@@ -265,10 +248,11 @@ export default function StoreComparisonChart({ history }) {
         .map((key) => {
           const x = new Date(`${key}T00:00:00.000Z`).getTime();
           const y = dailyMap[key]?.stores?.[store];
-          if (y == null) return null;
-          const num = Number(y);
-          if (!Number.isFinite(num) || num <= 0) return null;
-          return { x, y: num };
+
+          if (!Number.isFinite(x)) return null;
+          if (!Number.isFinite(y) || y <= 0) return null;
+
+          return { x, y };
         })
         .filter(Boolean);
     });
@@ -288,7 +272,6 @@ export default function StoreComparisonChart({ history }) {
     return <div className="h-[400px] w-full bg-slate-50 animate-pulse rounded-[2.5rem]" />;
   }
 
-  // 5. Configuração das Séries do Apex
   const series =
     viewMode === "all_stores"
       ? [{ name: "Market Best Price", data: processedData.bestSeriesXY || [] }]
@@ -296,10 +279,12 @@ export default function StoreComparisonChart({ history }) {
 
   const primaryColor = "#3b82f6";
   const storeColors = ["#10b981", "#f59e0b", "#8b5cf6", "#f43f5e", "#06b6d4"];
+
+  const storeIndex = availableStores.indexOf(viewMode);
   const activeColor =
-    viewMode === "all_stores"
+    viewMode === "all_stores" || storeIndex < 0
       ? primaryColor
-      : storeColors[availableStores.indexOf(viewMode) % storeColors.length];
+      : storeColors[storeIndex % storeColors.length];
 
   const options = {
     chart: {
@@ -310,11 +295,19 @@ export default function StoreComparisonChart({ history }) {
       sparkline: { enabled: false },
     },
     colors: [activeColor],
+    noData: {
+      text: "No price history available",
+      align: "center",
+      verticalAlign: "middle",
+      style: {
+        color: "#64748b",
+        fontSize: "14px",
+        fontWeight: 700,
+      },
+    },
     stroke: {
       curve: "smooth",
       width: 3,
-      // ✅ Mantém ligado: com XY + gaps, o Apex respeita melhor
-      connectNulls: true,
     },
     fill: {
       type: "gradient",
@@ -332,7 +325,6 @@ export default function StoreComparisonChart({ history }) {
       padding: { left: 0, right: 10 },
     },
     xaxis: {
-      // ✅ CORREÇÃO: usar datetime elimina o bug de “não ligar” com gaps grandes por categoria
       type: "datetime",
       axisBorder: { show: false },
       axisTicks: { show: false },
@@ -341,7 +333,6 @@ export default function StoreComparisonChart({ history }) {
         rotate: 0,
         hideOverlappingLabels: true,
         datetimeUTC: true,
-        // Mostra M/D (mantém o mesmo estilo que você tinha)
         formatter: (value, timestamp) => {
           const t = typeof timestamp === "number" ? timestamp : Number(value);
           if (!Number.isFinite(t)) return "";
@@ -363,7 +354,8 @@ export default function StoreComparisonChart({ history }) {
     },
     tooltip: {
       theme: "light",
-      shared: true,
+      shared: false,
+      intersect: false,
       x: {
         formatter: (val) => {
           const t = Number(val);
@@ -373,29 +365,27 @@ export default function StoreComparisonChart({ history }) {
         },
       },
       y: {
-        formatter: (val) => (val != null ? `$${Number(val).toFixed(2)}` : "N/A"),
+        formatter: (val) => (val != null && Number.isFinite(val) ? `$${Number(val).toFixed(2)}` : "N/A"),
         title: {
-          // Substitui o nome da série pelo nome da loja vencedora
-          formatter: (seriesName, { dataPointIndex }) => {
-            if (viewMode === "all_stores" && processedData.bestStoreNames[dataPointIndex]) {
-              return processedData.bestStoreNames[dataPointIndex] + ": ";
-            }
-            return seriesName + ": ";
-          },
+          formatter: (seriesName) => `${seriesName}: `,
         },
       },
     },
-    markers: { size: 4, strokeWidth: 0, hover: { size: 7 } },
+    markers: {
+      size: 4,
+      strokeWidth: 0,
+      hover: { size: 7 },
+    },
   };
 
   return (
     <div className="bg-white p-4 md:p-10 rounded-[1rem] border border-slate-100 shadow-sm relative overflow-hidden">
-      {/* HEADER */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
         <div>
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
             Price Evolution
           </h3>
+
           <div className="flex gap-4">
             <div className="flex gap-1.5 items-center bg-emerald-50 px-3 py-1 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -434,12 +424,10 @@ export default function StoreComparisonChart({ history }) {
         </div>
       </div>
 
-      {/* GRÁFICO */}
       <div className="h-[250px] md:h-[350px] w-full">
         <Chart options={options} series={series} type="area" height="100%" />
       </div>
 
-      {/* LEGENDA */}
       <div className="mt-4 pt-6 border-t border-slate-50 flex flex-wrap gap-4 justify-center">
         <div
           onClick={() => setViewMode("all_stores")}

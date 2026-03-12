@@ -127,7 +127,16 @@ export async function GET(request, { params }) {
       {};
 
     const fullProductData = {
-      ...product,
+      id: product.id,
+      slug: product.slug,
+      name: product.name,
+      brand: product.brand,
+      upc: product.upc,
+      normalizedModelKey: product.normalizedModelKey,
+      category_path: product.category_path,
+      internalCategory: product.internalCategory,
+      customerReviewAverage: product.customerReviewAverage,
+      customerReviewCount: product.customerReviewCount,
 
       image: product.image || referenceListing?.image || null,
 
@@ -148,9 +157,8 @@ export async function GET(request, { params }) {
         affiliateUrl: l.affiliateUrl || l.url,
         condition: l.condition,
         image: l.image,
-        isExpired: l.isExpired,
-        onlineAvailability: l.onlineAvailability,
-        rawDetails: l.rawDetails,
+        isExpired: Boolean(l.isExpired),
+        onlineAvailability: Boolean(l.onlineAvailability),
       })),
 
       salePrice: currentPrice,

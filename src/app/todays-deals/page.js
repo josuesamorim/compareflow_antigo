@@ -1,3 +1,5 @@
+// app/todays-deals/page.js
+
 import DealsClient from "./DealsClient.js";
 import { prisma } from "../../lib/prisma.js";
 
@@ -10,12 +12,12 @@ const currentYear = new Date().getFullYear();
  * - OG/Twitter
  */
 export const metadata = {
-  title: `Today's Top Deals in USA | Flash Sales & Price Drops ${currentYear} | CompareFlow`,
-  description: `Find today's best tech deals in the United States. CompareFlow monitors price drops in real time across major retailers, helping you compare offers, check availability, and save money. Updated for ${currentYear}.`,
+  title: `Today's Top Deals in USA | Flash Sales & Price Drops ${currentYear} | COMPAREFLOW`,
+  description: `Find today's best tech deals in the United States. COMPAREFLOW monitors price drops in real time across major retailers, helping you compare offers, check availability, and save money. Updated for ${currentYear}.`,
   alternates: {
-    canonical: "https://compareflow.club/todays-deals",
+    canonical: "https://www.compareflow.club/todays-deals",
     languages: {
-      "en-US": "https://compareflow.club/todays-deals",
+      "en-US": "https://www.compareflow.club/todays-deals",
     },
   },
   robots: {
@@ -30,17 +32,17 @@ export const metadata = {
     },
   },
   openGraph: {
-    title: `Today's Top Deals in USA | Flash Sales & Price Drops ${currentYear} | CompareFlow`,
+    title: `Today's Top Deals in USA | Flash Sales & Price Drops ${currentYear} | COMPAREFLOW`,
     description:
       "Don't miss today's real price drops. Compare offers, see availability, and jump straight to official retailers.",
-    url: "https://compareflow.club/todays-deals",
-    siteName: "CompareFlow",
+    url: "https://www.compareflow.club/todays-deals",
+    siteName: "COMPAREFLOW",
     type: "website",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: `Today's Top Deals in USA | CompareFlow`,
+    title: `Today's Top Deals in USA | COMPAREFLOW`,
     description: "Real-time deal feed for the US market. Verified price drops across major retailers.",
   },
 };
@@ -199,7 +201,7 @@ export default async function Page() {
      *
      * ✅ Mudança crítica:
      * - dropped_recently NÃO é filtro. É somente boost de ranking.
-     *   Isso evita "sumir tudo" quando ainda não existe 2 coletas recentes por listing.
+     * Isso evita "sumir tudo" quando ainda não existe 2 coletas recentes por listing.
      *
      * ✅ Correção importante:
      * - adiciona final_score no payload inicial do SSR para ficar em total paridade com a API.
@@ -524,15 +526,14 @@ export default async function Page() {
     const totalItems = Number(countResult?.[0]?.total || 0);
     initialTotalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
 
+    // DTO Explícito para barrar vazamento de chaves de DB (id, listing_id)
+    // E esconder os parâmetros de cálculo do algoritmo
     initialDeals = (products || []).map((p) => {
       const sale = normalizePrice(p.sale_price);
       const regular = normalizePrice(p.reference_price);
       const percent = Number(p.discount_percent || 0);
 
       return {
-        id: p.product_id.toString(),
-        listingId: p.listing_id?.toString?.() || null,
-        sku: p.sku,
         name: p.name,
         image: p.listing_image || "/placeholder-deal.jpg",
         slug: p.slug,
@@ -548,32 +549,6 @@ export default async function Page() {
         onlineAvailability: Boolean(p.online_availability),
         isExpired: Boolean(p.is_expired),
         internalCategory: p.internal_category || null,
-        normalizedModelKey: p.normalized_model_key || null,
-
-        // Extras úteis
-        trustMultiplier:
-          p.trust_multiplier !== null && p.trust_multiplier !== undefined ? Number(p.trust_multiplier) : 1,
-        spikeDays30d:
-          p.spike_days_30d !== null && p.spike_days_30d !== undefined ? Number(p.spike_days_30d) : 0,
-        baseline30d:
-          p.baseline_30d !== null && p.baseline_30d !== undefined ? Number(p.baseline_30d) : null,
-        samples30d:
-          p.samples_30d !== null && p.samples_30d !== undefined ? Number(p.samples_30d) : 0,
-        maxToBaselineRatio:
-          p.max_to_baseline_ratio !== null && p.max_to_baseline_ratio !== undefined
-            ? Number(p.max_to_baseline_ratio)
-            : null,
-        dealScore: p.deal_score !== null && p.deal_score !== undefined ? Number(p.deal_score) : null,
-        finalScore: p.final_score !== null && p.final_score !== undefined ? Number(p.final_score) : null,
-
-        // Anti-overpriced
-        isOverpricedConfident: Boolean(p.is_overpriced_confident),
-
-        // Today drop telemetry (debug/UX opcional)
-        droppedRecently: Boolean(p.dropped_recently),
-        dropAmount: p.drop_amount !== null && p.drop_amount !== undefined ? Number(p.drop_amount) : null,
-        dropPct: p.drop_pct !== null && p.drop_pct !== undefined ? Number(p.drop_pct) : null,
-        lastPriceAt: p.last_price_at ? new Date(p.last_price_at).toISOString() : null,
       };
     });
   } catch (error) {
@@ -587,7 +562,7 @@ export default async function Page() {
    * - BreadcrumbList
    * - CollectionPage + ItemList of Products (each with Offer)
    */
-  const canonical = "https://compareflow.club/todays-deals";
+  const canonical = "https://www.compareflow.club/todays-deals";
   const pageName = `Today's Top Deals in USA`;
   const pageDescription = `Live deal feed for the United States. Compare prices, check availability, and find real price drops across major retailers. Updated for ${currentYear}.`;
 
@@ -595,13 +570,13 @@ export default async function Page() {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: "https://compareflow.club/" },
+      { "@type": "ListItem", position: 1, name: "Home", item: "https://www.compareflow.club/" },
       { "@type": "ListItem", position: 2, name: "Today's Deals", item: canonical },
     ],
   };
 
   const itemListElement = (initialDeals || []).slice(0, itemsPerPage).map((d, idx) => {
-    const productUrl = `https://compareflow.club/product/${encodeURIComponent(d.slug)}`;
+    const productUrl = `https://www.compareflow.club/product/${encodeURIComponent(d.slug)}`;
     const brandName = safeBrandName(d.brand) || "Top Brands";
 
     const rawUpc = d.upc || null;
@@ -635,7 +610,6 @@ export default async function Page() {
       url: productUrl,
       image: d.image ? [d.image] : undefined,
       brand: { "@type": "Brand", name: brandName },
-      sku: d.sku ? String(d.sku) : undefined,
       ...(gtin12 ? { gtin12 } : {}),
       ...(gtin13 ? { gtin13 } : {}),
       ...(gtin14 ? { gtin14 } : {}),
@@ -654,13 +628,13 @@ export default async function Page() {
     "@type": "CollectionPage",
     "@id": `${canonical}#collection`,
     url: canonical,
-    name: `${pageName} | CompareFlow`,
+    name: `${pageName} | COMPAREFLOW`,
     description: pageDescription,
     inLanguage: "en-US",
     isPartOf: {
       "@type": "WebSite",
-      name: "CompareFlow",
-      url: "https://compareflow.club/",
+      name: "COMPAREFLOW",
+      url: "https://www.compareflow.club/",
     },
     audience: {
       "@type": "Audience",

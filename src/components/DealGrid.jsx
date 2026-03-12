@@ -16,14 +16,14 @@ export default function DealGrid({ initialProducts, title = "", isHomeSection = 
   
   /**
    * ESTADO DE PROTEÇÃO CONTRA IMAGENS QUEBRADAS
-   * Rastreamos IDs de produtos cujas imagens falharam no carregamento em tempo real.
+   * Rastreamos IDs (agora slugs) de produtos cujas imagens falharam no carregamento em tempo real.
    */
   const [hiddenProducts, setHiddenProducts] = useState(new Set());
 
-  const handleImageError = (productId) => {
+  const handleImageError = (safeProductId) => {
     setHiddenProducts((prev) => {
       const newSet = new Set(prev);
-      newSet.add(productId);
+      newSet.add(safeProductId);
       return newSet;
     });
   };
@@ -102,7 +102,7 @@ export default function DealGrid({ initialProducts, title = "", isHomeSection = 
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6" suppressHydrationWarning>
-        {validProducts.slice(0, visibleCount).map((product) => {
+        {validProducts.slice(0, visibleCount).map((product, index) => {
           /**
            * CÁLCULO DE PREÇO REAL-TIME:
            * Forçamos a conversão para Number para evitar erros de string concat.
@@ -115,8 +115,9 @@ export default function DealGrid({ initialProducts, title = "", isHomeSection = 
           // Prioriza o label da API, mas recalcula se estiver ausente para manter a precisão
           const discountDisplay = product.discountLabel || (hasDiscount ? `${Math.round(((rPrice - sPrice) / rPrice) * 100)}% OFF` : null);
           
-          const productUrl = `/product/${product.slug || product.sku}`;
-          const productId = product.sku || product.id;
+          const productUrl = `/product/${product.slug}`;
+          // Corrigido: Usar slug como ID seguro, com fallback para o index se algo falhar
+          const safeProductId = product.slug || `fallback-id-${index}`;
 
           /**
            * TRATAMENTO DE MARCA (BRAND):
@@ -127,10 +128,10 @@ export default function DealGrid({ initialProducts, title = "", isHomeSection = 
             : "Deal";
 
           // Se a imagem falhar fisicamente no browser, removemos o card do DOM
-          if (hiddenProducts.has(productId)) return null;
+          if (hiddenProducts.has(safeProductId)) return null;
 
           return (
-            <article key={productId} className="relative group">
+            <article key={safeProductId} className="relative group">
               <Link 
                 aria-label={`View details for ${product.name}`}
                 href={productUrl} 
@@ -145,10 +146,10 @@ export default function DealGrid({ initialProducts, title = "", isHomeSection = 
                     onLoad={(e) => {
                       // Proteção contra imagens de 1px ou corrompidas que não disparam onError
                       if (e.target.naturalWidth > 0 && e.target.naturalWidth < 10) {
-                        handleImageError(productId);
+                        handleImageError(safeProductId);
                       }
                     }}
-                    onError={() => handleImageError(productId)}
+                    onError={() => handleImageError(safeProductId)}
                     className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-700" 
                     alt={product.name} 
                   />

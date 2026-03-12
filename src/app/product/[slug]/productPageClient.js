@@ -1,4 +1,3 @@
-// productPageClient.js
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
@@ -22,24 +21,27 @@ function normalizeConditionKey(condition) {
     raw.includes("open-box") ||
     raw.includes("openbox") ||
     raw.includes("open_box")
-  )
+  ) {
     return "open-box";
+  }
 
   if (
     raw.includes("refurb") ||
     raw.includes("renewed") ||
     raw.includes("reconditioned") ||
     raw.includes("certified")
-  )
+  ) {
     return "refurbished";
+  }
 
   if (
     raw.includes("pre-owned") ||
     raw.includes("preowned") ||
     raw.includes("used") ||
     raw.includes("seminovo")
-  )
+  ) {
     return "pre-owned";
+  }
 
   return raw.replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || "new";
 }
@@ -82,20 +84,15 @@ function ConditionBadge({ condition }) {
 }
 
 /**
- * Heurística "BestBuy-like" (premium + consistente):
- * - ✅ Sem matte/gradiente: fundo branco puro (como você pediu)
- * - ✅ Nunca corta: object-contain SEM scale
- * - ✅ Ocupa o espaço do bloco no desktop (sem limitar em square)
- * - ✅ Ajuste automático para imagens MUITO horizontais/verticais (ex: caneta) via padding dinâmico
+ * Hero image
  */
 function ProductHeroImage({ images = [], alt, isMobile = false }) {
-  const fallbackPlaceholder = `/no-image.png`;
+  const fallbackPlaceholder = "/no-image.png";
   const imagesKey = JSON.stringify(images);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [useFallback, setUseFallback] = useState(images.length === 0);
-
   const [ratioMode, setRatioMode] = useState("unknown"); // normal | wide | tall | extreme
 
   useEffect(() => {
@@ -103,7 +100,7 @@ function ProductHeroImage({ images = [], alt, isMobile = false }) {
     setLoaded(false);
     setUseFallback(images.length === 0);
     setRatioMode("unknown");
-  }, [imagesKey]);
+  }, [imagesKey, images.length]);
 
   const currentSrc = useFallback
     ? fallbackPlaceholder
@@ -142,21 +139,14 @@ function ProductHeroImage({ images = [], alt, isMobile = false }) {
   };
 
   const paddingClass = useMemo(() => {
-    /**
-     * ✅ Para NÃO cortar em hipótese nenhuma:
-     * - Sem scale/zoom
-     * - “Aumentar” produto = reduzir padding
-     */
     if (ratioMode === "wide") return "p-1 md:p-3";
     if (ratioMode === "tall") return "p-0.5 md:p-2";
     if (ratioMode === "extreme") return "p-0 md:p-1";
     return "p-3 md:p-6";
   }, [ratioMode]);
 
-  // ✅ sizes de desktop agora acompanha o bloco, não fixa 520px
   const sizesAttr = isMobile ? "100vw" : "(max-width: 1024px) 45vw, 33vw";
 
-  // ✅ Container: mobile quadrado; desktop ocupa altura total do bloco (sem cortar)
   const containerClass = useMemo(() => {
     return [
       "relative w-full overflow-hidden rounded-2xl md:rounded-[2rem]",
@@ -193,22 +183,21 @@ function ProductHeroImage({ images = [], alt, isMobile = false }) {
         src={currentSrc}
         alt={alt || "Product Image"}
         fill
-        priority={true}
+        priority
         sizes={sizesAttr}
         onError={handleError}
-        onLoadingComplete={(img) => {
+        onLoad={(e) => {
           setLoaded(true);
+          const img = e.currentTarget;
           applyRatioHeuristics(img?.naturalWidth, img?.naturalHeight);
         }}
         className={[
           "z-10",
-          "object-contain", // ✅ nunca corta
+          "object-contain",
           "w-full h-full",
-          paddingClass, // ✅ aumenta sem zoom
+          paddingClass,
           "transition-opacity duration-500 ease-out",
           loaded ? "opacity-100" : "opacity-0",
-          // ✅ sombra suave pra separar produto branco de fundo branco (sem matte)
-          // "drop-shadow-[0_14px_20px_rgba(0,0,0,0.10)]",
           "select-none",
         ].join(" ")}
       />
@@ -221,7 +210,7 @@ function ProductContent({ initialProduct }) {
   const searchParams = useSearchParams();
   const slug = params?.slug;
 
-  const [product, setProduct] = useState(initialProduct);
+  const [product, setProduct] = useState(initialProduct || null);
   const [loading, setLoading] = useState(!initialProduct);
   const [mounted, setMounted] = useState(false);
 
@@ -234,8 +223,6 @@ function ProductContent({ initialProduct }) {
     return text.toString().replace(/[\x00-\x1F\x7F-\x9F]/g, "").trim() || "N/A";
   };
 
-  // ✅ Mantém consistência Search -> PDP: preserva querystring (?condition=...&price=...)
-  // OBS: useSearchParams é assíncrono no sentido de hidratação; sempre trate como opcional.
   const conditionQS = searchParams?.get("condition") || "";
   const priceQS = searchParams?.get("price") || "";
 
@@ -248,15 +235,15 @@ function ProductContent({ initialProduct }) {
   }, [conditionQS, priceQS]);
 
   useEffect(() => {
-    // ✅ Se initialProduct existe mas slug mudou (navegação client), refetch.
-    // ✅ Se initialProduct NÃO existe, também refetch.
     if (!slug) return;
 
-    if (!initialProduct || (initialProduct && initialProduct.slug !== slug)) {
+    if (!initialProduct || initialProduct.slug !== slug) {
       async function getProductData() {
         setLoading(true);
         try {
-          const res = await fetch(`/api/product/${slug}${qsString}`);
+          const res = await fetch(`/api/product/${slug}${qsString}`, {
+            cache: "no-store",
+          });
           if (!res.ok) throw new Error("Product not found");
           const data = await res.json();
           setProduct(data);
@@ -269,7 +256,6 @@ function ProductContent({ initialProduct }) {
       }
       getProductData();
     } else {
-      // Se já temos initialProduct para o slug atual, garante estado correto
       setProduct(initialProduct);
       setLoading(false);
     }
@@ -277,12 +263,12 @@ function ProductContent({ initialProduct }) {
 
   const scrollToSection = (sectionId) => {
     const element = document.getElementById(sectionId);
-    if (element) {
-      const offset = 100;
-      const elementPosition = element.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - offset;
-      window.scrollTo({ top: offsetPosition, behavior: "smooth" });
-    }
+    if (!element) return;
+
+    const offset = 100;
+    const elementPosition = element.getBoundingClientRect().top;
+    const offsetPosition = elementPosition + window.pageYOffset - offset;
+    window.scrollTo({ top: offsetPosition, behavior: "smooth" });
   };
 
   if (loading && !product) {
@@ -312,52 +298,42 @@ function ProductContent({ initialProduct }) {
     );
   }
 
-  // --- LÓGICA DE DADOS ---
   const offers = Array.isArray(product.offers) ? product.offers : [];
 
-  // ✅ Seleção do "bestOffer" respeitando a condição do clique/search
-  // - conditionQS: vem do link/click no card (fonte forte no client)
-  // - product.selectedCondition: vem do server (fallback)
-  // - product.selectedOfferId: vem do server (mais forte ainda)
+  // Não depende mais de selectedOfferId
   const requestedConditionKey = normalizeConditionKey(
     conditionQS || product.selectedCondition || "",
   );
-  const selectedOfferId = product.selectedOfferId || null;
 
   const bestOffer = useMemo(() => {
-    if (!offers || offers.length === 0) return null;
+    if (!offers.length) return null;
 
-    // 1) Se o server já determinou offer id, use ele (mais forte)
-    if (selectedOfferId != null) {
-      const byId = offers.find((o) => String(o.id) === String(selectedOfferId));
-      if (byId) return byId;
-    }
+    const activeOffers = offers.filter(
+      (o) => !Boolean(o?.isExpired) && Boolean(o?.onlineAvailability),
+    );
 
-    // 2) Se temos condição pedida, pega a menor dessa condição
+    const pool = activeOffers.length ? activeOffers : offers;
+
     if (requestedConditionKey) {
-      const candidates = offers.filter(
+      const candidates = pool.filter(
         (o) => normalizeConditionKey(o?.condition) === requestedConditionKey,
       );
-      if (candidates.length > 0) {
-        const sorted = [...candidates].sort(
+
+      if (candidates.length) {
+        return [...candidates].sort(
           (a, b) => Number(a.currentPrice || 0) - Number(b.currentPrice || 0),
-        );
-        return sorted[0];
+        )[0];
       }
     }
 
-    // 3) fallback
-    return offers[0];
-  }, [offers, selectedOfferId, requestedConditionKey]);
+    return [...pool].sort(
+      (a, b) => Number(a.currentPrice || 0) - Number(b.currentPrice || 0),
+    )[0];
+  }, [offers, requestedConditionKey]);
 
-  // ✅ Preço topo da PDP: vem do server (product.lowestPrice) já respeitando condição;
-  // fallback para o bestOffer, se necessário.
   const lowestPrice = Number(product.lowestPrice ?? bestOffer?.currentPrice ?? 0);
+  const bestOfferUrl = bestOffer?.affiliateUrl || "#";
 
-  const bestOfferUrl = bestOffer?.affiliateUrl || bestOffer?.url || "#";
-
-  // COLETA DE IMAGENS EM CASCATA (Fallback)
-  // ✅ Prioriza a imagem da oferta selecionada primeiro (consistência visual)
   const allPossibleImages = [
     bestOffer?.image,
     product.image,
@@ -371,6 +347,7 @@ function ProductContent({ initialProduct }) {
       product.rawDetails?.product_model ||
       product.rawDetails?.Model,
   );
+
   const displayColor = cleanText(
     product.rawDetails?.color ||
       product.rawDetails?.colour ||
@@ -378,11 +355,8 @@ function ProductContent({ initialProduct }) {
   );
 
   const handleGoToStore = () => {
-    if (
-      typeof window !== "undefined" &&
-      typeof window.dataLayer !== "undefined"
-    ) {
-      const eventData = {
+    if (typeof window !== "undefined" && typeof window.dataLayer !== "undefined") {
+      window.dataLayer.push({
         event: "click_go_to_store",
         product_name: product?.name || "Unknown",
         store_name: bestOffer?.storeName || "Retailer",
@@ -392,38 +366,34 @@ function ProductContent({ initialProduct }) {
           product?.selectedCondition ||
           conditionQS ||
           "unknown",
-      };
-      window.dataLayer.push(eventData);
+      });
     }
   };
 
+  // Não depende mais de expertLastUpdated
   const hasValidAIReview =
-    product.expertScore &&
-    product.expertReview &&
-    product.expertLastUpdated &&
-    !product.expertReview?.error;
+    typeof product?.expertScore !== "undefined" &&
+    product?.expertScore !== null &&
+    product?.expertReview &&
+    !product?.expertReview?.error;
 
   const navItems = [
     { label: "Store Offers", id: "offers-pc" },
     { label: "Price History", id: "history-pc" },
-    // ✅ SWAP: Expert Analysis antes de Product Specs
     ...(hasValidAIReview ? [{ label: "Expert Analysis", id: "analysis-pc" }] : []),
     { label: "Product Specs", id: "specs-pc" },
   ];
 
-  // ✅ Condição inicial para o PriceAnalyzer bater com o topo da página
   const analyzerInitialCondition =
     bestOffer?.condition || product?.selectedCondition || conditionQS || "NEW";
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* MOBILE UI */}
       <div className="md:hidden pb-10 text-left">
         <section
           className="bg-white border-b border-slate-200 overflow-hidden"
           aria-label="Product Main Information"
         >
-          {/* Ajuste: altura maior + imagem ocupando melhor */}
           <div className="p-6 flex justify-center border-b border-slate-100 relative bg-white h-[300px]">
             <ConditionBadge condition={bestOffer?.condition} />
             <ProductHeroImage
@@ -443,7 +413,6 @@ function ProductContent({ initialProduct }) {
                 {product.name}
               </h1>
 
-              {/* LÓGICA DE ESTOQUE NO PREÇO PRINCIPAL MOBILE */}
               <div className="flex items-center gap-4 bg-gray-900 rounded-2xl p-4 text-white border-l-[6px] border-[#ffdb00] shadow-xl">
                 <div className="flex-1">
                   <p className="text-[#ffdb00] font-black text-[9px] uppercase">
@@ -459,7 +428,7 @@ function ProductContent({ initialProduct }) {
                     href={bestOfferUrl}
                     target="_blank"
                     onClick={handleGoToStore}
-                    rel="noopener noreferrer"
+                    rel="noopener noreferrer nofollow sponsored"
                     className="bg-[#ffdb00] text-gray-900 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-center"
                     aria-label={`Check best offer for ${product.name}`}
                   >
@@ -475,7 +444,6 @@ function ProductContent({ initialProduct }) {
                 )}
               </div>
 
-              {/* Price Analyzer só exibe análises se houver preço válido */}
               {bestOffer && (
                 <PriceAnalyzer
                   currentPrice={lowestPrice}
@@ -504,11 +472,10 @@ function ProductContent({ initialProduct }) {
             )}
           </section>
 
-          {/* ✅ SWAP MOBILE: ExpertReviewAI antes de TechnicalSpecs */}
           {hasValidAIReview && (
             <div id="analysis-mobile">
-  <ExpertReviewAI review={product.expertReview} score={product.expertScore} />
-</div>
+              <ExpertReviewAI review={product.expertReview} score={product.expertScore} />
+            </div>
           )}
 
           <section
@@ -523,7 +490,6 @@ function ProductContent({ initialProduct }) {
         </div>
       </div>
 
-      {/* DESKTOP UI */}
       <div className="hidden md:block relative text-left">
         <main className="max-w-7xl mx-auto px-4 py-8">
           <section
@@ -531,7 +497,6 @@ function ProductContent({ initialProduct }) {
             aria-label="Product Summary"
           >
             <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch min-h-[380px]">
-              {/* ✅ Imagem PC agora ocupa o bloco todo (sem max width / sem square) */}
               <div className="lg:col-span-4 bg-white p-10 flex items-stretch border-r border-slate-100 h-full relative min-h-[380px]">
                 <ConditionBadge condition={bestOffer?.condition} />
                 <div className="w-full h-full">
@@ -554,7 +519,6 @@ function ProductContent({ initialProduct }) {
                     </h1>
                   </div>
 
-                  {/* LÓGICA DE ESTOQUE NO PREÇO PRINCIPAL DESKTOP */}
                   <div className="shrink-0 bg-gray-900 rounded-[2.5rem] p-10 text-white border-l-[8px] border-[#ffdb00] shadow-2xl min-w-[320px] text-center">
                     <p className="text-5xl font-black tracking-tighter">
                       {bestOffer ? `$${lowestPrice.toFixed(2)}` : "Out of Stock"}
@@ -608,8 +572,7 @@ function ProductContent({ initialProduct }) {
           <div className="space-y-20 pb-24 max-w-5xl mx-auto">
             <section id="offers-pc" className="scroll-mt-36">
               <h2 className="text-xs font-black uppercase mb-8 text-slate-400 tracking-[0.3em] flex items-center gap-4">
-                Best Available Offers{" "}
-                <span className="h-[1px] flex-1 bg-slate-200"></span>
+                Best Available Offers <span className="h-[1px] flex-1 bg-slate-200"></span>
               </h2>
               <OfferComparisonList offers={offers} productName={product.name} />
             </section>
@@ -619,7 +582,6 @@ function ProductContent({ initialProduct }) {
                 Price Analytics <span className="h-[1px] flex-1 bg-slate-200"></span>
               </h2>
 
-              {/* Price Analyzer só exibe análises se houver preço válido */}
               {bestOffer && (
                 <PriceAnalyzer
                   currentPrice={lowestPrice}
@@ -638,7 +600,6 @@ function ProductContent({ initialProduct }) {
               </div>
             </section>
 
-            {/* ✅ SWAP DESKTOP: ExpertReviewAI antes de TechnicalSpecs */}
             {hasValidAIReview && (
               <section id="analysis-pc" className="scroll-mt-36">
                 <ExpertReviewAI
