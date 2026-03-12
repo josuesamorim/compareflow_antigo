@@ -25,13 +25,13 @@ export async function generateMetadata({ searchParams }) {
     title,
     description,
     alternates: {
-      canonical: 'https://CompareFlow.club/search',
+      canonical: 'https://www.compareflow.club/search',
     },
     openGraph: {
       title,
       description,
       type: 'website',
-      url: 'https://CompareFlow.club/search',
+      url: 'https://www.compareflow.club/search',
     },
     twitter: {
       card: 'summary_large_image',

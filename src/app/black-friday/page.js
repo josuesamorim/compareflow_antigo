@@ -17,19 +17,19 @@ export const metadata = {
   description:
     "Track real Black Friday 2026 deals across major US retailers. Verified price history, real-time monitoring, and direct checkout links.",
   alternates: {
-    canonical: "https://compareflow.club/black-friday",
+    canonical: "https://www.compareflow.club/black-friday",
   },
   openGraph: {
     title: "Black Friday 2026 Deals – Verified US Discounts | CompareFlow",
     description:
       "Official Black Friday 2026 deal monitoring hub focused on verified US retailer discounts and real-time price tracking.",
-    url: "https://compareflow.club/black-friday",
+    url: "https://www.compareflow.club/black-friday",
     siteName: "CompareFlow",
     type: "website",
     locale: "en_US",
     images: [
       {
-        url: "https://compareflow.club/og/black-friday-2026.png",
+        url: "https://www.compareflow.club/og/black-friday.png",
         width: 1200,
         height: 630,
         alt: "Black Friday 2026 Deals – CompareFlow",
@@ -41,7 +41,7 @@ export const metadata = {
     title: "Black Friday 2026 Deals – Verified US Discounts | CompareFlow",
     description:
       "Track verified Black Friday 2026 deals with real-time price monitoring and historical price context.",
-    images: ["https://compareflow.club/og/black-friday-2026.png"],
+    images: ["https://www.compareflow.club/og/black-friday-2026.png"],
   },
   robots: {
     index: true,
@@ -58,10 +58,10 @@ export const metadata = {
 
 export default async function BlackFridayPage() {
   const year = 2026; // fixo para posicionamento forte
-  const pageUrl = "https://compareflow.club/black-friday";
+  const pageUrl = "https://www.compareflow.club/black-friday";
   const siteUrl = "https://compareflow.club";
-  const logoUrl = "https://compareflow.club/logo.png"; // ajuste se necessário
-  const heroImageUrl = "https://compareflow.club/og/black-friday-2026.png"; // ajuste se necessário
+  const logoUrl = "https://www.compareflow.club/logo.png"; // ajuste se necessário
+  const heroImageUrl = "https://www.compareflow.club/og/black-friday-2026.png"; // ajuste se necessário
 
   const jsonLd = {
     "@context": "https://schema.org",
