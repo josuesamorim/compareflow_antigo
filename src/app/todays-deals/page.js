@@ -535,7 +535,7 @@ export default async function Page() {
 
       return {
         name: p.name,
-        image: p.listing_image || "/placeholder-deal.jpg",
+        image: p.listing_image || "/no-image.png",
         slug: p.slug,
         brand: p.brand,
         upc: p.upc || null,
