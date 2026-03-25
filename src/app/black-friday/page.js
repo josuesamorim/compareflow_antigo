@@ -59,7 +59,7 @@ export const metadata = {
 export default async function BlackFridayPage() {
   const year = 2026; // fixo para posicionamento forte
   const pageUrl = "https://www.compareflow.club/black-friday";
-  const siteUrl = "https://compareflow.club";
+  const siteUrl = "https://www.compareflow.club";
   const logoUrl = "https://www.compareflow.club/logo.png"; // ajuste se necessário
   const heroImageUrl = "https://www.compareflow.club/og/black-friday-2026.png"; // ajuste se necessário
 
