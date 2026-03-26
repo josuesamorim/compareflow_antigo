@@ -4,7 +4,7 @@ import { prisma } from "../lib/prisma";
  * CONFIGURAÇÃO DE CACHE DE 1 HORA
  * O Sitemap será revalidado a cada 3600 segundos (1 hora).
  */
-export const revalidate = 3600;
+export const revalidate = 72000;
 
 /**
  * Helpers (SEO-safe)

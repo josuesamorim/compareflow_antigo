@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client'
 //   ? process.env.DATABASE_URL_SUPABASE 
 //   : process.env.DATABASE_URL_LOCAL;
 
-  const connectionString = process.env.PRICELAB_SUPABASE_DB;
+  const connectionString = process.env.DATABASE_URL;
 
 const prismaClientSingleton = () => {
   return new PrismaClient({

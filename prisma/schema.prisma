@@ -1,15 +1,12 @@
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["fullTextSearchPostgres"]
+  previewFeatures = ["fullTextSearch"] 
 }
-
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("PRICELAB_SUPABASE_DB")        
-  directUrl = env("PRICELAB_SUPABASE_DB_DIRECT") 
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
-
 
 model Product {
   id                      Int                      @id @default(autoincrement())
@@ -23,7 +20,7 @@ model Product {
   lastUpdated             DateTime?                @default(now()) @map("last_updated") @db.Timestamptz(6)
   group_id                String?                  @db.VarChar(255)
   upc                     String?                  @db.VarChar(50)
-  normalizedModelKey      String?                  @map("normalized_model_key")
+  normalizedModelKey      String?                  @unique(map: "unique_normalized_model_key") @map("normalized_model_key")
   search_vector           Unsupported("tsvector")?
   expertScore             Decimal?                 @map("expert_score") @db.Decimal(3, 1)
   expertReview            Json?                    @map("expert_review")
@@ -35,7 +32,7 @@ model Product {
   expertLastChecked       DateTime?                @default(dbgenerated("'1970-01-01 00:00:00+00'::timestamp with time zone")) @map("expert_last_checked") @db.Timestamptz(6)
   upcLastChecked          DateTime?                @map("upc_last_checked") @db.Timestamptz(6)
   upcNotFound             Boolean                  @default(false) @map("upc_not_found")
-  aiNameCleaned         Boolean        @default(false) @map("ai_name_cleaned")
+  aiNameCleaned           Boolean                  @default(false) @map("ai_name_cleaned")
   listings                Listing[]
 
   @@index([upc])
@@ -81,6 +78,43 @@ model PriceHistory {
   listing    Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("price_history")
+}
+
+model StagingProduct {
+  id                     Int       @id @default(autoincrement())
+  source                 String    @db.VarChar(50)
+  sku                    String    @unique @db.VarChar(100)
+  name                   String?
+  brand                  String?   @db.VarChar(100)
+  category_path          String?   @db.VarChar(255)
+  upc                    String?   @db.VarChar(50)
+  normalizedModelKey     String?   @unique(map: "staging_unique_model") @map("normalized_model_key") @db.VarChar(255)
+  group_id               String?   @db.VarChar(255)
+  url                    String?
+  image                  String?
+  condition              String?   @db.VarChar(50)
+  regularPrice           Decimal?  @map("regular_price") @db.Decimal(10, 2)
+  salePrice              Decimal?  @map("sale_price") @db.Decimal(10, 2)
+  onSale                 Boolean   @default(false) @map("on_sale")
+  onlineAvailability     Boolean   @default(true) @map("online_availability")
+  isExpired              Boolean   @default(false) @map("is_expired")
+  rawDetails             Json?     @map("raw_details")
+  internalCategory       String?   @map("internal_category") @db.VarChar(100)
+  classificationStatus   String    @default("pending") @map("classification_status") @db.VarChar(30)
+  classificationError    String?   @map("classification_error")
+  classificationAttempts Int       @default(0) @map("classification_attempts")
+  publishedAt            DateTime? @map("published_at") @db.Timestamptz(6)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  slug                   String?   @db.VarChar(255)
+
+  @@index([classificationStatus], map: "idx_staging_products_status")
+  @@index([source], map: "idx_staging_products_source")
+  @@index([upc], map: "idx_staging_products_upc")
+  @@index([normalizedModelKey], map: "idx_staging_products_normalized_model_key")
+  @@index([group_id], map: "idx_staging_products_group_id")
+  @@index([createdAt(sort: Desc)], map: "idx_staging_products_created_at_desc")
+  @@map("staging_products")
 }
 
 enum ExpertStatus {
