@@ -112,308 +112,15 @@ function normalizePrice(v) {
 export default async function Page() {
   async function getInitialDeals(category, limit = 4) {
     try {
-      const blockedBrandsArray = [
-        "AMPD",
-        "Anker",
-        "Backbone",
-        "Baseus",
-        "Beats",
-        "Belkin",
-        "Bellroy",
-        "Best Buy essentials™",
-        "Bracketron",
-        "Canon",
-        "Case-Mate",
-        "CASETiFY",
-        "Chargeworx",
-        "Cobra",
-        "dbrand",
-        "DJI",
-        "EcoFlow",
-        "Energizer",
-        "Escort",
-        "FLAUNT",
-        "Fremo",
-        "Fujifilm",
-        "HOCO",
-        "INIU",
-        "Insignia™",
-        "iOttie",
-        "Jackery",
-        "JOBY",
-        "JOURNEY",
-        "kate spade new york",
-        "KeySmart",
-        "Kodak",
-        "LAUT",
-        "Liene",
-        "Lively®",
-        "Mint Mobile",
-        "mophie",
-        "myCharge",
-        "Native Union",
-        "NETGEAR",
-        "Nimble",
-        "Octobuddy",
-        "OhSnap",
-        "OtterBox",
-        "Peak Design",
-        "Pelican",
-        "PopSockets",
-        "REL",
-        "Rexing",
-        "SaharaCase",
-        "Scosche",
-        "Shure",
-        "SIMO",
-        "Simple Mobile",
-        "Speck",
-        "Spigen",
-        "SureCall",
-        "Tech21",
-        "The Ridge Wallet",
-        "TORRAS",
-        "Total Wireless",
-        "Tracfone",
-        "Twelve South",
-        "UAG",
-        "UGREEN",
-        "Ultra Mobile",
-        "UltraLast",
-        "Unplugged",
-        "VELVET CAVIAR",
-        "Verizon",
-        "Visible",
-        "weBoost",
-        "WORX",
-        "XREAL",
-        "ZAGG",
-        "Storm",
-      ];
+      const queryLimit = category === "laptops" ? 8 : limit;
 
+      // 🔥 Olha a diferença! O Prisma agora só consulta a View pré-processada
       const rawResult = await prisma.$queryRaw`
-        WITH TargetProducts AS (
-          SELECT
-            p.id,
-            p.name,
-            p.brand,
-            p.slug,
-            p.internal_category,
-            p.upc
-          FROM products p
-          WHERE p.internal_category = ${category}::TEXT
-            AND p.brand IS NOT NULL
-            AND p.brand <> ''
-            AND NOT (p.brand::TEXT = ANY(${blockedBrandsArray}::TEXT[]))
-
-            -- Filtro geral de ruído
-            AND p.name IS NOT NULL
-            AND p.name <> ''
-            AND p.name NOT ILIKE '%applecare%'
-            AND p.name NOT ILIKE '%protection plan%'
-            AND p.name NOT ILIKE '%membership%'
-            AND p.name NOT ILIKE '%gift card%'
-            AND p.name NOT ILIKE '%subscription%'
-            AND p.name NOT ILIKE '%service plan%'
-            AND p.name NOT ILIKE '%warranty%'
-            AND p.name NOT ILIKE '%mint%'
-            AND p.name NOT ILIKE '%kit%'
-
-            -- Excluir acessórios / itens correlatos em geral
-            AND p.name NOT ILIKE '%case%'
-            AND p.name NOT ILIKE '%weboost%'
-            AND p.name NOT ILIKE '%cover%'
-            AND p.name NOT ILIKE '%protector%'
-            AND p.name NOT ILIKE '%screen protector%'
-            AND p.name NOT ILIKE '%glass%'
-            AND p.name NOT ILIKE '%cable%'
-            AND p.name NOT ILIKE '%adapter%'
-            AND p.name NOT ILIKE '%strap%'
-            AND p.name NOT ILIKE '%mount%'
-            AND p.name NOT ILIKE '%stand%'
-            AND p.name NOT ILIKE '%dock%'
-            AND p.name NOT ILIKE '%hub%'
-            AND p.name NOT ILIKE '%charger%'
-            AND p.name NOT ILIKE '%battery pack%'
-            AND p.name NOT ILIKE '%power bank%'
-            AND p.name NOT ILIKE '%backpack%'
-            AND p.name NOT ILIKE '%bag%'
-            AND p.name NOT ILIKE '%sleeve%'
-
-            -- Filtro semântico por categoria para home
-            AND (
-              (
-                p.internal_category = 'smartphones'
-                AND (
-                  p.name ILIKE '%iphone%'
-                  OR p.name ILIKE '%galaxy%'
-                  OR p.name ILIKE '%pixel%'
-                  OR p.name ILIKE '%motorola%'
-                  OR p.name ILIKE '%moto %'
-                  OR p.name ILIKE '%oneplus%'
-                  OR p.name ILIKE '%xiaomi%'
-                  OR p.name ILIKE '%phone%'
-                  OR p.name ILIKE '%smartphone%'
-                )
-                AND p.name NOT ILIKE '%power station%'
-                AND p.name NOT ILIKE '%tablet%'
-                AND p.name NOT ILIKE '%watch%'
-                AND p.name NOT ILIKE '%earbuds%'
-                AND p.name NOT ILIKE '%headphones%'
-              )
-              OR
-              (
-                p.internal_category = 'tvs'
-                AND (
-                  p.name ILIKE '%tv%'
-                  OR p.name ILIKE '%smart tv%'
-                  OR p.name ILIKE '%oled%'
-                  OR p.name ILIKE '%qled%'
-                  OR p.name ILIKE '%uhd%'
-                  OR p.name ILIKE '%4k%'
-                  OR p.name ILIKE '%8k%'
-                )
-                AND p.name NOT ILIKE '%soundbar%'
-                AND p.name NOT ILIKE '%speaker%'
-                AND p.name NOT ILIKE '%subwoofer%'
-                AND p.name NOT ILIKE '%receiver%'
-                AND p.name NOT ILIKE '%amplifier%'
-                AND p.name NOT ILIKE '%mount%'
-                AND p.name NOT ILIKE '%streaming%'
-              )
-              OR
-              (
-                p.internal_category = 'laptops'
-                AND (
-                  p.name ILIKE '%laptop%'
-                  OR p.name ILIKE '%notebook%'
-                  OR p.name ILIKE '%chromebook%'
-                  OR p.name ILIKE '%macbook%'
-                )
-                AND p.name NOT ILIKE '%memory%'
-                AND p.name NOT ILIKE '%ram%'
-                AND p.name NOT ILIKE '%ssd%'
-                AND p.name NOT ILIKE '%bed desk%'
-                AND p.name NOT ILIKE '%desk%'
-                AND p.name NOT ILIKE '%keyboard%'
-                AND p.name NOT ILIKE '%mouse%'
-                AND p.name NOT ILIKE '%dock%'
-              )
-            )
-        ),
-
-        BestListings AS (
-          SELECT DISTINCT ON (l.product_id)
-            l.id AS listing_id,
-            l.product_id,
-            l.sku,
-            l.sale_price,
-            l.regular_price,
-            l.image AS listing_image,
-            l.store,
-            l.condition,
-            l.online_availability,
-            l.is_expired,
-            l.url,
-            l.affiliate_url
-          FROM listings l
-          INNER JOIN TargetProducts tp ON tp.id = l.product_id
-          WHERE l.is_expired = false
-            AND l.online_availability = true
-            AND l.sale_price > 15
-            AND l.image IS NOT NULL
-            AND l.image <> ''
-            AND l.image NOT LIKE '%placeholder%'
-            AND (
-              (tp.internal_category = 'smartphones' AND l.sale_price >= 199)
-              OR (tp.internal_category = 'tvs' AND l.sale_price >= 249)
-              OR (tp.internal_category = 'laptops' AND l.sale_price >= 299)
-            )
-          ORDER BY l.product_id, l.sale_price ASC
-        ),
-
-        AvgPriceHistory AS (
-          SELECT
-            ph.listing_id,
-            AVG(ph.price) AS historic_avg
-          FROM price_history ph
-          INNER JOIN BestListings bl ON bl.listing_id = ph.listing_id
-          WHERE ph.captured_at >= NOW() - INTERVAL '30 days'
-          GROUP BY ph.listing_id
-        ),
-
-        CleanProducts AS (
-          SELECT
-            tp.id AS product_id,
-            tp.name,
-            tp.brand,
-            tp.slug,
-            tp.internal_category,
-            tp.upc,
-            bl.sale_price,
-            bl.regular_price,
-            bl.listing_image,
-            bl.store,
-            bl.condition,
-            bl.online_availability,
-            bl.is_expired,
-            bl.affiliate_url,
-            COALESCE(ph.historic_avg, bl.sale_price) AS avg_price,
-            CASE
-              WHEN COALESCE(ph.historic_avg, 0) > 0
-                THEN bl.sale_price / COALESCE(ph.historic_avg, bl.sale_price)
-              ELSE 1
-            END AS price_ratio
-          FROM TargetProducts tp
-          INNER JOIN BestListings bl ON bl.product_id = tp.id
-          LEFT JOIN AvgPriceHistory ph ON ph.listing_id = bl.listing_id
-          WHERE
-            (
-              tp.internal_category = 'laptops'
-              AND bl.sale_price <= COALESCE(ph.historic_avg * 1.08, bl.sale_price)
-            )
-            OR
-            (
-              tp.internal_category <> 'laptops'
-              AND bl.sale_price <= COALESCE(ph.historic_avg, bl.sale_price)
-            )
-        ),
-
-        RankedProducts AS (
-          SELECT
-            cp.*,
-            ROW_NUMBER() OVER (
-              PARTITION BY
-                CASE
-                  WHEN cp.internal_category = 'laptops'
-                    THEN cp.slug
-                  ELSE cp.brand
-                END
-              ORDER BY cp.price_ratio ASC, cp.sale_price ASC
-            ) AS rn
-          FROM CleanProducts cp
-        )
-
-        SELECT
-          name,
-          listing_image,
-          slug,
-          brand,
-          upc,
-          sale_price,
-          regular_price,
-          internal_category,
-          avg_price,
-          price_ratio,
-          store,
-          condition,
-          online_availability,
-          is_expired,
-          affiliate_url
-        FROM RankedProducts
-        WHERE rn = 1
+        SELECT *
+        FROM home_featured_deals
+        WHERE internal_category = ${category}
         ORDER BY price_ratio ASC, sale_price ASC
-        LIMIT ${category === "laptops" ? 8 : limit}
+        LIMIT ${queryLimit}
       `;
 
       const formattedItems = rawResult.map((p) => {
@@ -423,7 +130,7 @@ export default async function Page() {
 
         const avgPriceNum = Number(p.avg_price);
         const salePriceNum = Number(p.sale_price);
-        const regularPriceNum = Number(p.regular_price);
+        const regularPriceNum = Number(p.regular_price) || salePriceNum;
 
         const diff =
           avgPriceNum > 0
@@ -447,22 +154,19 @@ export default async function Page() {
           priceStatus:
             diff <= -5 ? "Great Deal" : diff < 0 ? "Good Price" : "Fair Price",
           internalCategory: p.internal_category
-            ? p.internal_category.replace(/-/g, " ")
+            ? String(p.internal_category).replace(/-/g, " ")
             : "Electronics",
           discountLabel:
             regularPriceNum > salePriceNum
               ? `${Math.round(
-                  ((regularPriceNum - salePriceNum) / regularPriceNum) * 100,
+                  ((regularPriceNum - salePriceNum) / regularPriceNum) * 100
                 )}% OFF`
               : null,
         };
       });
 
       return {
-        items:
-          category === "laptops"
-            ? formattedItems.slice(0, limit)
-            : formattedItems.slice(0, limit),
+        items: formattedItems,
       };
     } catch (e) {
       console.error(`❌ Erro SQL na Home para ${category}:`, e);
