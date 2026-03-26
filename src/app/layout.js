@@ -1,16 +1,48 @@
 import "./globals.css";
+
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { SpeedInsights } from "@vercel/speed-insights/next";
-import { Analytics } from "@vercel/analytics/next";
 import { GoogleTagManager } from "@next/third-parties/google";
-import Script from "next/script"; 
-import { prisma } from "../lib/prisma";
+import Script from "next/script";
 
 /**
- * METADADOS GLOBAIS
- * Gerenciados pelo Next.js. Ele automaticamente injeta as tags corretas no <head>.
+ * LISTA DE CATEGORIAS FIXAS (Temporário)
+ * Extraído do seu script de classificação para garantir consistência.
  */
+const CATEGORIAS_PERMITIDAS = [
+  'smartphones',
+'laptops',
+'gaming',
+'tvs',
+'smart-home',
+'wearables',
+'audio',
+'home-theater',
+'cameras',
+'appliances',
+'drones',
+'clothing',
+'shoes',
+'toys-collectibles',
+'sports-fitness',
+'health-personal-care',
+'accessories',
+'security',
+'desktops',
+'printers',
+'office',
+'automotive-electronics',
+'luggage-bags',
+'mobility',
+'power-solar',
+'musical-instruments',
+'pet-supplies',
+'outdoor-garden',
+'giftcards',
+'services-warranties',
+'others'
+];
+
 export const metadata = {
   title: {
     default: "CompareFlow | Best Deals in USA",
@@ -36,7 +68,6 @@ export const metadata = {
       "max-video-preview": -1,
     },
   },
-  // ✅ Favicon adicionado via Metadata API
   icons: {
     icon: "/favicon.svg",
   },
@@ -69,78 +100,39 @@ export const metadata = {
   },
 };
 
-/**
- * ROOT LAYOUT V25
- * Estrutura mestre da aplicação. Gerencia Tags, Analytics e o esqueleto visual.
- */
-
-// ✅ Mudança 1: Adicionamos o "async" aqui
 export default async function RootLayout({ children }) {
-  // ✅ Só carrega analytics em PRODUÇÃO (Vercel / build prod)
   const isProd = process.env.NODE_ENV === "production";
-
-  // ✅ Só lê GTM se estiver em prod (e se existir)
   const gtmId = isProd ? process.env.NEXT_PUBLIC_GTM_ID : null;
 
-  // ✅ Mudança 2: Busca as categorias dinâmicas no banco (Prisma)
-  let dbCategories = [];
-  try {
-    const group = await prisma.product.groupBy({
-      by: ['internalCategory'],
-      _count: {
-        internalCategory: true,
-      },
-      where: {
-        internalCategory: { not: null }
-      },
-      orderBy: {
-        _count: {
-          internalCategory: 'desc' // Ordena pelas categorias que têm mais produtos
-        }
-      }
-    });
-
-    dbCategories = group.map(g => ({
-      slug: g.internalCategory,
-      count: g._count.internalCategory
-    }));
-  } catch (error) {
-    console.error("Erro ao buscar categorias no banco:", error);
-    // Fallback de segurança caso o banco fique offline temporariamente
-    dbCategories = [
-      { slug: "laptops" }, { slug: "smartphones" }, { slug: "tv-home-theater" }
-    ];
-  }
+  /**
+   * ✅ MODO TEMPORÁRIO:
+   * Mapeamos as categorias permitidas para o formato que o Header espera.
+   * Não fazemos chamadas ao banco (Prisma) para economizar recursos 
+   * enquanto o banco está sendo populado/corrigido.
+   */
+  const dbCategories = CATEGORIAS_PERMITIDAS.map(cat => ({
+    slug: cat,
+    count: 0 // Como é estático, definimos count como 0
+  }));
 
   return (
     <html lang="en" className="h-full">
-      {/* ✅ GTM só carrega em produção e se tiver ID */}
       {gtmId && <GoogleTagManager gtmId={gtmId} />}
 
       <head>
-        <link
-          rel="preconnect"
-          href="https://pisces.bbystatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          rel="preconnect"
-          href="https://i.ebayimg.com"
-          crossOrigin="anonymous"
-        />
+        <link rel="preconnect" href="https://pisces.bbystatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://i.ebayimg.com" crossOrigin="anonymous" />
       </head>
 
       <body className="antialiased bg-slate-50 flex flex-col min-h-screen m-0 p-0 overflow-x-hidden selection:bg-[#ffdb00] selection:text-black">
         
-        {/* ✅ Mudança 3: Passamos as categorias do banco como prop para o Header */}
+        {/* ✅ O Header recebe agora a lista fixa sincronizada com o classificador AI */}
         <Header dbCategories={dbCategories} />
 
-        {/* MAIN */}
         <main className="flex-1 w-full relative min-h-[100dvh] flex flex-col">
           {children}
         </main>
         
-        {/* Script do eBay Partner Network */}
         <Script id="ebay-epn-config" strategy="afterInteractive">
           {`window._epn = {campaign: 5339143879};`}
         </Script>
@@ -149,16 +141,7 @@ export default async function RootLayout({ children }) {
           strategy="afterInteractive"
         />
 
-        {/* Footer */}
         <Footer />
-
-        {/* ✅ Vercel Analytics só em produção */}
-        {isProd && (
-          <>
-            <SpeedInsights />
-            <Analytics />
-          </>
-        )}
       </body>
     </html>
   );
