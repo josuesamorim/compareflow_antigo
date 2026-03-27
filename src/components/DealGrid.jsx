@@ -2,6 +2,7 @@
 "use client";
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 /**
  * COMPONENTE: ProductGrid
@@ -140,7 +141,7 @@ export default function DealGrid({ initialProducts, title = "", isHomeSection = 
               >
                 {/* CONTAINER DA IMAGEM */}
                 <div className="relative h-40 md:h-56 overflow-hidden bg-white flex items-center justify-center p-4">
-                  <img 
+                  <Image 
                     src={product.image} 
                     loading="lazy"
                     onLoad={(e) => {

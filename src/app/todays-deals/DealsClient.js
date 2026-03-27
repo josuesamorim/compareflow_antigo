@@ -5,6 +5,7 @@
 import PageSelector from '../../components/PageSelector';
 import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 /**
  * COMPONENTE DE DEALS COM SINCRONIA TOTAL AO DB (V25)
@@ -169,7 +170,7 @@ export default function DealsClient({ initialData = [], initialTotalPages = 1 })
                 <article key={deal.slug ? `${deal.slug}-${index}` : `deal-${index}`} className="group relative bg-white rounded-2xl md:rounded-[2.5rem] border border-slate-100 shadow-xl transition-all hover:border-[#ffdb00] flex flex-col overflow-hidden">
                   <Link href={`/product/${deal.slug}`} className="p-3 md:p-5 flex-1 flex flex-col">
                     <div className="relative aspect-square bg-white rounded-xl md:rounded-[2rem] overflow-hidden mb-4 border border-slate-50 p-4">
-                      <img 
+                      <Image 
                         src={deal.image || '/placeholder.png'} 
                         alt={deal.name} 
                         className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110"

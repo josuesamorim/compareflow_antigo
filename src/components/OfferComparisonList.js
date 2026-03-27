@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 
 // Adicionada a prop productName para enriquecer os dados do Analytics
 export default function OfferComparisonList({ offers, productName }) {
@@ -168,7 +169,7 @@ export default function OfferComparisonList({ offers, productName }) {
               {/* CONTAINER DA LOGO */}
               <div className={`${styles.bg} ${styles.border} w-14 h-14 md:w-16 md:h-16 shrink-0 rounded-2xl flex items-center justify-center border shadow-inner group-hover:scale-110 transition-transform duration-300 overflow-hidden relative`}>
                 {styles.logo ? (
-                  <img 
+                  <Image 
                     src={styles.logo} 
                     alt={offer.storeName}
                     className="absolute inset-0 w-full h-full object-cover" 

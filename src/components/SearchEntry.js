@@ -3,6 +3,7 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export default function SearchEntry() {
     const [query, setQuery] = useState("");
@@ -150,7 +151,7 @@ export default function SearchEntry() {
                                 className="flex items-start p-3 hover:bg-slate-50 rounded-xl cursor-pointer group transition-colors"
                             >
                                 <div className="hidden sm:flex w-14 h-14 flex-none bg-white rounded-lg border border-gray-50 items-center justify-center p-1 overflow-hidden mr-4">
-                                    <img src={item.image} alt="" className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                                    <Image src={item.image} alt="" className="max-w-full max-h-full object-contain mix-blend-multiply" />
                                 </div>
                                 
                                 <div className="flex-1 min-w-0">
